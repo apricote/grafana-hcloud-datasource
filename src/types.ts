@@ -1,9 +1,19 @@
 import { DataSourceJsonData } from '@grafana/data';
 import { DataQuery } from '@grafana/schema';
 
+export const ServerMetricsTypes = ['cpu', 'disk', 'network'] as const;
+export const LoadBalancerMetricsTypes = [
+  'open-connections',
+  'connections-per-second',
+  'requests-per-second',
+  'bandwidth',
+] as const;
+
 export interface Query extends DataQuery {
   queryType: 'resource-list' | 'metrics';
   resourceType: 'server' | 'load-balancer';
+  metricsType: (typeof ServerMetricsTypes)[number] | (typeof LoadBalancerMetricsTypes)[number];
+
   resourceIds: number[];
 }
 

@@ -24,9 +24,24 @@ const (
 	QueryTypeMetrics      = "metrics"
 )
 
+type ResourceType string
+
 const (
-	ResourceTypeServer       = "server"
-	ResourceTypeLoadBalancer = "load-balancer"
+	ResourceTypeServer       ResourceType = "server"
+	ResourceTypeLoadBalancer ResourceType = "load-balancer"
+)
+
+type MetricsType string
+
+const (
+	MetricsTypeServerCPU     MetricsType = "cpu"
+	MetricsTypeServerDisk    MetricsType = "disk"
+	MetricsTypeServerNetwork MetricsType = "network"
+
+	MetricsTypeLoadBalancerOpenConnections      MetricsType = "connections"
+	MetricsTypeLoadBalancerConnectionsPerSecond MetricsType = "connections-per-second"
+	MetricsTypeLoadBalancerRequestsPerSecond    MetricsType = "requests-per-second"
+	MetricsTypeLoadBalancerBandwidth            MetricsType = "bandwidth"
 )
 
 type Options struct {
@@ -34,7 +49,8 @@ type Options struct {
 }
 
 type QueryModel struct {
-	ResourceType string `json:"resourceType"`
+	ResourceType ResourceType `json:"resourceType"`
+	MetricsType  MetricsType  `json:"metricsType"`
 }
 
 // Make sure Datasource implements required interfaces. This is important to do
@@ -121,8 +137,6 @@ func (d *Datasource) QueryData(ctx context.Context, req *backend.QueryDataReques
 
 	return response, nil
 }
-
-type queryModel struct{}
 
 func (d *Datasource) queryResourceList(ctx context.Context, query backend.DataQuery) backend.DataResponse {
 	var response backend.DataResponse
@@ -212,18 +226,16 @@ func (d *Datasource) queryResourceList(ctx context.Context, query backend.DataQu
 func (d *Datasource) queryMetrics(ctx context.Context, query backend.DataQuery) backend.DataResponse {
 	var response backend.DataResponse
 
-	// Unmarshal the JSON into our queryModel.
-	var qm queryModel
-
+	var qm QueryModel
 	err := json.Unmarshal(query.JSON, &qm)
 	if err != nil {
-		return backend.ErrDataResponse(backend.StatusBadRequest, fmt.Sprintf("json unmarshal: %v", err.Error()))
+		return backend.ErrDataResponseWithSource(backend.StatusBadRequest, backend.ErrorSourcePlugin, fmt.Sprintf("json unmarshal: %v", err.Error()))
 	}
 
 	step := stepSize(query)
 
 	metrics, _, err := d.client.Server.GetMetrics(ctx, &hcloud.Server{ID: 40502748}, hcloud.ServerGetMetricsOpts{
-		Types: []hcloud.ServerMetricType{hcloud.ServerMetricCPU, hcloud.ServerMetricDisk, hcloud.ServerMetricNetwork},
+		Types: []hcloud.ServerMetricType{metricTypeToServerMetricType(qm.MetricsType)},
 		Start: query.TimeRange.From,
 		End:   query.TimeRange.To,
 		Step:  step,
@@ -358,4 +370,32 @@ func (d *Datasource) CheckHealth(ctx context.Context, _ *backend.CheckHealthRequ
 		Status:  backend.HealthStatusOk,
 		Message: "Successfully connected to Hetzner Cloud API",
 	}, nil
+}
+
+func metricTypeToServerMetricType(metricsType MetricsType) hcloud.ServerMetricType {
+	switch metricsType {
+	case MetricsTypeServerCPU:
+		return hcloud.ServerMetricCPU
+	case MetricsTypeServerDisk:
+		return hcloud.ServerMetricDisk
+	case MetricsTypeServerNetwork:
+		return hcloud.ServerMetricNetwork
+	default:
+		return hcloud.ServerMetricCPU
+	}
+}
+
+func metricTypeToLoadBalancerMetricType(metricsType MetricsType) hcloud.LoadBalancerMetricType {
+	switch metricsType {
+	case MetricsTypeLoadBalancerOpenConnections:
+		return hcloud.LoadBalancerMetricOpenConnections
+	case MetricsTypeLoadBalancerConnectionsPerSecond:
+		return hcloud.LoadBalancerMetricConnectionsPerSecond
+	case MetricsTypeLoadBalancerRequestsPerSecond:
+		return hcloud.LoadBalancerMetricRequestsPerSecond
+	case MetricsTypeLoadBalancerBandwidth:
+		return hcloud.LoadBalancerMetricBandwidth
+	default:
+		return hcloud.LoadBalancerMetricOpenConnections
+	}
 }

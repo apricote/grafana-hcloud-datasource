@@ -2,13 +2,30 @@ import React from 'react';
 import { InlineField, Select } from '@grafana/ui';
 import { QueryEditorProps, SelectableValue } from '@grafana/data';
 import { DataSource } from '../datasource';
-import { DataSourceOptions, Query } from '../types';
+import { DataSourceOptions, LoadBalancerMetricsTypes, Query, ServerMetricsTypes } from '../types';
 
 type Props = QueryEditorProps<DataSource, Query, DataSourceOptions>;
 
 export function QueryEditor({ query, onChange, onRunQuery }: Props) {
   const onResourceTypeChange = (event: SelectableValue<Query['resourceType']>) => {
-    onChange({ ...query, resourceType: event.value! });
+    const resourceType = event.value!;
+    let metricsType = query.metricsType;
+
+    // Make sure that the metrics type is valid for the new resource type
+    switch (resourceType) {
+      case 'server': {
+        if (!ServerMetricsTypes.includes(metricsType as any)) {
+          metricsType = 'cpu';
+        }
+        break;
+      }
+      case 'load-balancer': {
+        if (!LoadBalancerMetricsTypes.includes(metricsType as any)) {
+          metricsType = 'open-connections';
+        }
+      }
+    }
+    onChange({ ...query, resourceType, metricsType });
     onRunQuery();
   };
 
@@ -17,7 +34,14 @@ export function QueryEditor({ query, onChange, onRunQuery }: Props) {
     onRunQuery();
   };
 
-  const { queryType, resourceType } = query;
+  const onMetricsTypeChange = (event: SelectableValue<Query['metricsType']>) => {
+    onChange({ ...query, metricsType: event.value! });
+    onRunQuery();
+  };
+
+  const availableMetricTypes = query.resourceType === 'server' ? ServerMetricsTypes : LoadBalancerMetricsTypes;
+
+  const { queryType, resourceType, metricsType } = query;
 
   return (
     <div className="gf-form">
@@ -41,6 +65,15 @@ export function QueryEditor({ query, onChange, onRunQuery }: Props) {
           onChange={onResourceTypeChange}
         ></Select>
       </InlineField>
+      {queryType === 'metrics' && (
+        <InlineField label="Metrics Type">
+          <Select
+            options={availableMetricTypes.map((type) => ({ label: type, value: type }))}
+            value={metricsType}
+            onChange={onMetricsTypeChange}
+          ></Select>
+        </InlineField>
+      )}
     </div>
   );
 }
