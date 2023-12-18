@@ -273,9 +273,62 @@ func serverMetricsToFrames(metrics *hcloud.ServerMetrics, refID string) []*data.
 			values = append(values, parsedValue)
 		}
 
+		valuesField := data.NewField("values", nil, values)
+
+		switch name {
+		case "cpu":
+			valuesField.Config = &data.FieldConfig{
+				DisplayName: "CPU Usage",
+				Unit:        "percent",
+			}
+		case "disk.0.iops.read":
+			valuesField.Config = &data.FieldConfig{
+				DisplayName: "Disk IOPS Read",
+				Unit:        "iops",
+			}
+		case "disk.0.iops.write":
+			valuesField.Config = &data.FieldConfig{
+				DisplayName: "Disk IOPS Write",
+				Unit:        "iops",
+			}
+		case "disk.0.bandwidth.read":
+			valuesField.Config = &data.FieldConfig{
+				DisplayName: "Disk Bandwidth Read",
+				Unit:        "bytes/sec",
+			}
+		case "disk.0.bandwidth.write":
+			valuesField.Config = &data.FieldConfig{
+				DisplayName: "Disk Bandwidth Write",
+				Unit:        "bytes/sec",
+			}
+		case "network.0.pps.in":
+			valuesField.Config = &data.FieldConfig{
+				DisplayName: "Network PPS Received",
+				Unit:        "packets/sec",
+			}
+		case "network.0.pps.out":
+			valuesField.Config = &data.FieldConfig{
+				DisplayName: "Network PPS Sent",
+				Unit:        "packets/sec",
+			}
+		case "network.0.bandwidth.in":
+			valuesField.Config = &data.FieldConfig{
+				DisplayName: "Network Bandwidth Received",
+				Unit:        "bytes/sec",
+			}
+		case "network.0.bandwidth.out":
+			valuesField.Config = &data.FieldConfig{
+				DisplayName: "Network Bandwidth Sent",
+				Unit:        "bytes/sec",
+			}
+		default:
+			// Unknown series, not a problem, we just do not have
+			// a good display name and unit
+		}
+
 		frame.Fields = append(frame.Fields,
 			data.NewField("time", nil, timestamps),
-			data.NewField("values", nil, values),
+			valuesField,
 		)
 
 		frames = append(frames, frame)
