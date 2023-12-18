@@ -24,8 +24,17 @@ const (
 	QueryTypeMetrics      = "metrics"
 )
 
+const (
+	ResourceTypeServer       = "server"
+	ResourceTypeLoadBalancer = "load-balancer"
+)
+
 type Options struct {
 	Debug bool `json:"debug"`
+}
+
+type QueryModel struct {
+	ResourceType string `json:"resourceType"`
 }
 
 // Make sure Datasource implements required interfaces. This is important to do
@@ -117,6 +126,86 @@ type queryModel struct{}
 
 func (d *Datasource) queryResourceList(ctx context.Context, query backend.DataQuery) backend.DataResponse {
 	var response backend.DataResponse
+
+	queryData := QueryModel{}
+	err := json.Unmarshal(query.JSON, &queryData)
+	if err != nil {
+		return backend.ErrDataResponseWithSource(backend.StatusBadRequest, backend.ErrorSourcePlugin, fmt.Sprintf("json unmarshal: %v", err.Error()))
+	}
+
+	switch queryData.ResourceType {
+	case ResourceTypeServer:
+		servers, err := d.client.Server.All(ctx)
+		if err != nil {
+			return backend.ErrDataResponseWithSource(backend.StatusInternal, backend.ErrorSourceDownstream, fmt.Sprintf("error getting servers: %v", err.Error()))
+		}
+
+		ids := make([]int64, 0, len(servers))
+		names := make([]string, 0, len(servers))
+		serverTypes := make([]string, 0, len(servers))
+		status := make([]string, 0, len(servers))
+		labels := make([]json.RawMessage, 0, len(servers))
+
+		for _, server := range servers {
+			ids = append(ids, server.ID)
+			names = append(names, server.Name)
+			serverTypes = append(serverTypes, server.ServerType.Name)
+			status = append(status, string(server.Status))
+
+			labelBytes, err := json.Marshal(server.Labels)
+			if err != nil {
+				return backend.ErrDataResponseWithSource(backend.StatusInternal, backend.ErrorSourcePlugin, fmt.Sprintf("failed to encode server labels: %v", err.Error()))
+			}
+			labels = append(labels, labelBytes)
+		}
+
+		frame := data.NewFrame("servers")
+		frame.Fields = append(frame.Fields,
+			data.NewField("id", nil, ids),
+			data.NewField("name", nil, names),
+			data.NewField("server_type", nil, serverTypes),
+			data.NewField("status", nil, status),
+			data.NewField("labels", nil, labels),
+		)
+
+		response.Frames = append(response.Frames, frame)
+
+	case ResourceTypeLoadBalancer:
+		loadBalancers, err := d.client.LoadBalancer.All(ctx)
+		if err != nil {
+			return backend.ErrDataResponseWithSource(backend.StatusInternal, backend.ErrorSourceDownstream, fmt.Sprintf("error getting load balancers: %v", err.Error()))
+		}
+
+		ids := make([]int64, 0, len(loadBalancers))
+		names := make([]string, 0, len(loadBalancers))
+		loadBalancerTypes := make([]string, 0, len(loadBalancers))
+		labels := make([]json.RawMessage, 0, len(loadBalancers))
+
+		for _, lb := range loadBalancers {
+			ids = append(ids, lb.ID)
+			names = append(names, lb.Name)
+			loadBalancerTypes = append(loadBalancerTypes, lb.LoadBalancerType.Name)
+
+			labelBytes, err := json.Marshal(lb.Labels)
+			if err != nil {
+				return backend.ErrDataResponseWithSource(backend.StatusInternal, backend.ErrorSourcePlugin, fmt.Sprintf("failed to encode load balancer labels: %v", err.Error()))
+			}
+			labels = append(labels, labelBytes)
+		}
+
+		frame := data.NewFrame("load-balancers")
+		frame.Fields = append(frame.Fields,
+			data.NewField("id", nil, ids),
+			data.NewField("name", nil, names),
+			data.NewField("load_balancer_type", nil, loadBalancerTypes),
+			data.NewField("labels", nil, labels),
+		)
+
+		response.Frames = append(response.Frames, frame)
+	default:
+		return backend.ErrDataResponseWithSource(backend.StatusBadRequest, backend.ErrorSourcePlugin, fmt.Sprintf("unknown resource type: %v", queryData.ResourceType))
+	}
+
 	return response
 }
 

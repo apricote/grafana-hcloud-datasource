@@ -14,6 +14,6 @@ type writer struct {
 }
 
 func (dw writer) Write(p []byte) (n int, err error) {
-	dw.logger.Debug(string(p))
+	dw.logger.Info(string(p))
 	return len(p), nil
 }

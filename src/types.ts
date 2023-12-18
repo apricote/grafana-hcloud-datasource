@@ -12,6 +12,11 @@ export const DEFAULT_QUERY: Partial<Query> = {
   resourceType: 'server',
 };
 
+export const DEFAULT_VARIABLE_QUERY: Partial<Query> = {
+  queryType: 'resource-list',
+  resourceType: 'server',
+};
+
 /**
  * These are options configured for each DataSource instance
  */
