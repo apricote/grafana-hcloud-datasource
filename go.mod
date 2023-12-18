@@ -4,7 +4,10 @@ go 1.21
 
 toolchain go1.21.5
 
-require github.com/grafana/grafana-plugin-sdk-go v0.197.0
+require (
+	github.com/grafana/grafana-plugin-sdk-go v0.197.0
+	github.com/hetznercloud/hcloud-go/v2 v2.5.1
+)
 
 require (
 	github.com/BurntSushi/toml v1.3.2 // indirect

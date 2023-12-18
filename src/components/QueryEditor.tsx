@@ -1,31 +1,45 @@
-import React, { ChangeEvent } from 'react';
-import { InlineField, Input } from '@grafana/ui';
-import { QueryEditorProps } from '@grafana/data';
+import React from 'react';
+import { InlineField, Select } from '@grafana/ui';
+import { QueryEditorProps, SelectableValue } from '@grafana/data';
 import { DataSource } from '../datasource';
-import { MyDataSourceOptions, MyQuery } from '../types';
+import { DataSourceOptions, Query } from '../types';
 
-type Props = QueryEditorProps<DataSource, MyQuery, MyDataSourceOptions>;
+type Props = QueryEditorProps<DataSource, Query, DataSourceOptions>;
 
 export function QueryEditor({ query, onChange, onRunQuery }: Props) {
-  const onQueryTextChange = (event: ChangeEvent<HTMLInputElement>) => {
-    onChange({ ...query, queryText: event.target.value });
-  };
-
-  const onConstantChange = (event: ChangeEvent<HTMLInputElement>) => {
-    onChange({ ...query, constant: parseFloat(event.target.value) });
-    // executes the query
+  const onResourceTypeChange = (event: SelectableValue<Query['resourceType']>) => {
+    onChange({ ...query, resourceType: event.value! });
     onRunQuery();
   };
 
-  const { queryText, constant } = query;
+  const onQueryTypeChange = (event: SelectableValue<Query['queryType']>) => {
+    onChange({ ...query, queryType: event.value! });
+    onRunQuery();
+  };
+
+  const { queryType, resourceType } = query;
 
   return (
     <div className="gf-form">
-      <InlineField label="Constant">
-        <Input onChange={onConstantChange} value={constant} width={8} type="number" step="0.1" />
+      <InlineField label="Query Type">
+        <Select
+          options={[
+            { label: 'Metrics', value: 'metrics' },
+            { label: 'Resource List', value: 'resource-list' },
+          ]}
+          value={queryType}
+          onChange={onQueryTypeChange}
+        ></Select>
       </InlineField>
-      <InlineField label="Query Text" labelWidth={16} tooltip="Not used yet">
-        <Input onChange={onQueryTextChange} value={queryText || ''} />
+      <InlineField label="Resource Type">
+        <Select
+          options={[
+            { label: 'Server', value: 'server' },
+            { label: 'Load Balancer', value: 'load-balancer' },
+          ]}
+          value={resourceType}
+          onChange={onResourceTypeChange}
+        ></Select>
       </InlineField>
     </div>
   );
