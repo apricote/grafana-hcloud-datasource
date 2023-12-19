@@ -66,13 +66,22 @@ export function QueryEditor({ query, onChange, onRunQuery }: Props) {
         ></Select>
       </InlineField>
       {queryType === 'metrics' && (
-        <InlineField label="Metrics Type">
-          <Select
-            options={availableMetricTypes.map((type) => ({ label: type, value: type }))}
-            value={metricsType}
-            onChange={onMetricsTypeChange}
-          ></Select>
-        </InlineField>
+        <>
+          <InlineField label="Metrics Type">
+            <Select
+              options={availableMetricTypes.map((type) => ({ label: type, value: type }))}
+              value={metricsType}
+              onChange={onMetricsTypeChange}
+            ></Select>
+          </InlineField>
+          <InlineField label="Resources" tooltip="ID or Names">
+            <Select
+              options={availableMetricTypes.map((type) => ({ label: type, value: type }))}
+              value={metricsType}
+              onChange={onMetricsTypeChange}
+            ></Select>
+          </InlineField>
+        </>
       )}
     </div>
   );

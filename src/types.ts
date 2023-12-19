@@ -14,7 +14,7 @@ export interface Query extends DataQuery {
   resourceType: 'server' | 'load-balancer';
   metricsType: (typeof ServerMetricsTypes)[number] | (typeof LoadBalancerMetricsTypes)[number];
 
-  resourceIds: number[];
+  resourceNameOrIDs: string[];
 }
 
 export const DEFAULT_QUERY: Partial<Query> = {

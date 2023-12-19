@@ -1,5 +1,5 @@
 import React, { ChangeEvent } from 'react';
-import { Checkbox, FieldSet, InlineField, LinkButton, SecretInput } from '@grafana/ui';
+import { Badge, Checkbox, Field, FieldSet, Icon, LinkButton, SecretInput } from '@grafana/ui';
 import { DataSourcePluginOptionsEditorProps } from '@grafana/data';
 import { DataSourceOptions, SecureJsonData } from '../types';
 
@@ -48,21 +48,34 @@ export function ConfigEditor(props: Props) {
 
   return (
     <div className="gf-form-group">
-      <p>
-        The API Token is required. It is always associated with a single Hetzner Cloud Project, so if you want to show
-        metrics for multiple projects, you need to add multiple datasources. You can create the token at{' '}
-        <LinkButton
-          href="https://console.hetzner.cloud/projects"
-          size="sm"
-          variant="secondary"
-          icon="external-link-alt"
-          target="_blank"
-        >
-          console.hetzner.cloud
-        </LinkButton>{' '}
-        by selecting a project and navigating to &quot;Security / API tokens / Generate API token&quot;.
-      </p>
-      <InlineField label="API Token" labelWidth={16}>
+      <Field
+        label="API Token"
+        required
+        description={
+          <>
+            You can create the token at{' '}
+            <LinkButton
+              href="https://console.hetzner.cloud/projects"
+              size="sm"
+              variant="secondary"
+              icon="external-link-alt"
+              target="_blank"
+            >
+              console.hetzner.cloud
+            </LinkButton>
+            .
+            <br /> Select a project and navigate to{' '}
+            <Badge
+              text={
+                <>
+                  Security <Icon name="angle-right" /> API tokens <Icon name="angle-right" /> Generate API token
+                </>
+              }
+              color="blue"
+            />
+          </>
+        }
+      >
         <SecretInput
           isConfigured={(secureJsonFields && secureJsonFields.apiToken) as boolean}
           value={secureJsonData.apiToken || ''}
@@ -71,7 +84,7 @@ export function ConfigEditor(props: Props) {
           onReset={onResetAPIToken}
           onChange={onAPITokenChange}
         />
-      </InlineField>
+      </Field>
       <FieldSet label="Development">
         <p>These option are used to develop the Datasource. It should not be necessary to set them in production.</p>
         <Checkbox

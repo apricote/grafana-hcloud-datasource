@@ -306,12 +306,12 @@ func serverMetricsToFrames(metrics *hcloud.ServerMetrics, refID string) []*data.
 		case "disk.0.bandwidth.read":
 			valuesField.Config = &data.FieldConfig{
 				DisplayName: "Disk Bandwidth Read",
-				Unit:        "bytes/sec",
+				Unit:        "bytes/sec(IEC)",
 			}
 		case "disk.0.bandwidth.write":
 			valuesField.Config = &data.FieldConfig{
 				DisplayName: "Disk Bandwidth Write",
-				Unit:        "bytes/sec",
+				Unit:        "bytes/sec(IEC)",
 			}
 		case "network.0.pps.in":
 			valuesField.Config = &data.FieldConfig{
@@ -326,12 +326,12 @@ func serverMetricsToFrames(metrics *hcloud.ServerMetrics, refID string) []*data.
 		case "network.0.bandwidth.in":
 			valuesField.Config = &data.FieldConfig{
 				DisplayName: "Network Bandwidth Received",
-				Unit:        "bytes/sec",
+				Unit:        "bytes/sec(IEC)",
 			}
 		case "network.0.bandwidth.out":
 			valuesField.Config = &data.FieldConfig{
 				DisplayName: "Network Bandwidth Sent",
-				Unit:        "bytes/sec",
+				Unit:        "bytes/sec(IEC)",
 			}
 		default:
 			// Unknown series, not a problem, we just do not have
