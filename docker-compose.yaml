@@ -14,3 +14,5 @@ services:
     volumes:
       - ./dist:/var/lib/grafana/plugins/apricote-hcloud-datasource
       - ./provisioning:/etc/grafana/provisioning
+    environment:
+      GF_METRICS_ENABLED: 'true'

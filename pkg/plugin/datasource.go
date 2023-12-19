@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/apricote/grafana-hcloud-datasource/pkg/logutil"
 	"github.com/grafana/grafana-plugin-sdk-go/build"
+	"github.com/prometheus/client_golang/prometheus"
 	"math"
 	"strconv"
 	"time"
@@ -76,6 +77,8 @@ func NewDatasource(_ context.Context, settings backend.DataSourceInstanceSetting
 	clientOpts := []hcloud.ClientOption{
 		hcloud.WithToken(settings.DecryptedSecureJSONData["apiToken"]),
 		hcloud.WithApplication("apricote-hcloud-datasource", version),
+		// TODO: Should we update hcloud-go to rely on the registerer interface instead?
+		hcloud.WithInstrumentation(prometheus.DefaultRegisterer.(*prometheus.Registry)),
 	}
 
 	options := Options{}
