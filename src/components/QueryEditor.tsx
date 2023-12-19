@@ -1,12 +1,12 @@
-import React from 'react';
-import { InlineField, Select } from '@grafana/ui';
+import React, { useState } from 'react';
+import { AsyncMultiSelect, InlineField, InlineFieldRow, Select } from '@grafana/ui';
 import { QueryEditorProps, SelectableValue } from '@grafana/data';
 import { DataSource } from '../datasource';
 import { DataSourceOptions, LoadBalancerMetricsTypes, Query, ServerMetricsTypes } from '../types';
 
 type Props = QueryEditorProps<DataSource, Query, DataSourceOptions>;
 
-export function QueryEditor({ query, onChange, onRunQuery }: Props) {
+export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) {
   const onResourceTypeChange = (event: SelectableValue<Query['resourceType']>) => {
     const resourceType = event.value!;
     let metricsType = query.metricsType;
@@ -25,7 +25,8 @@ export function QueryEditor({ query, onChange, onRunQuery }: Props) {
         }
       }
     }
-    onChange({ ...query, resourceType, metricsType });
+    onChange({ ...query, resourceType, metricsType, resourceIDs: [] });
+    setFormResourceIDs([]);
     onRunQuery();
   };
 
@@ -39,12 +40,19 @@ export function QueryEditor({ query, onChange, onRunQuery }: Props) {
     onRunQuery();
   };
 
+  const [formResourceIDs, setFormResourceIDs] = useState<Array<SelectableValue<number>>>([]);
+  const onResourceNameOrIDsChange = (newValues: Array<SelectableValue<number>>) => {
+    onChange({ ...query, resourceIDs: newValues.map((value) => value.value!) });
+    onRunQuery();
+    setFormResourceIDs(newValues);
+  };
+
   const availableMetricTypes = query.resourceType === 'server' ? ServerMetricsTypes : LoadBalancerMetricsTypes;
 
-  const { queryType, resourceType, metricsType } = query;
+  const { queryType, resourceType, metricsType, resourceIDs } = query;
 
   return (
-    <div className="gf-form">
+    <InlineFieldRow>
       <InlineField label="Query Type">
         <Select
           options={[
@@ -74,15 +82,29 @@ export function QueryEditor({ query, onChange, onRunQuery }: Props) {
               onChange={onMetricsTypeChange}
             ></Select>
           </InlineField>
-          <InlineField label="Resources" tooltip="ID or Names">
-            <Select
-              options={availableMetricTypes.map((type) => ({ label: type, value: type }))}
-              value={metricsType}
-              onChange={onMetricsTypeChange}
-            ></Select>
+
+          <InlineField label={resourceType === 'server' ? 'Servers' : 'Load Balancers'}>
+            <AsyncMultiSelect
+              key={resourceType} // Force reloading options when the key changes
+              loadOptions={loadResources(datasource, resourceType)}
+              value={formResourceIDs}
+              onChange={onResourceNameOrIDsChange}
+              defaultOptions
+            ></AsyncMultiSelect>
           </InlineField>
         </>
       )}
-    </div>
+    </InlineFieldRow>
   );
 }
+
+const loadResources = (datasource: DataSource, resourceType: Query['resourceType']) => async (_: string) => {
+  switch (resourceType) {
+    case 'server': {
+      return datasource.getServers();
+    }
+    case 'load-balancer': {
+      return datasource.getLoadBalancers();
+    }
+  }
+};

@@ -8,6 +8,7 @@ import (
 	"github.com/grafana/grafana-plugin-sdk-go/build"
 	"github.com/prometheus/client_golang/prometheus"
 	"math"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -61,6 +62,7 @@ type QueryModel struct {
 // interfaces - only those which are required for a particular task.
 var (
 	_ backend.QueryDataHandler      = (*Datasource)(nil)
+	_ backend.CallResourceHandler   = (*Datasource)(nil)
 	_ backend.CheckHealthHandler    = (*Datasource)(nil)
 	_ instancemgmt.InstanceDisposer = (*Datasource)(nil)
 )
@@ -96,9 +98,11 @@ func NewDatasource(_ context.Context, settings backend.DataSourceInstanceSetting
 		clientOpts...,
 	)
 
-	return &Datasource{
+	d := &Datasource{
 		client: client,
-	}, nil
+	}
+
+	return d, nil
 }
 
 // Datasource is an example datasource which can respond to data queries, reports
@@ -401,4 +405,77 @@ func metricTypeToLoadBalancerMetricType(metricsType MetricsType) hcloud.LoadBala
 	default:
 		return hcloud.LoadBalancerMetricOpenConnections
 	}
+}
+
+func (d *Datasource) CallResource(ctx context.Context, req *backend.CallResourceRequest, sender backend.CallResourceResponseSender) error {
+	ctxLogger := logger.FromContext(ctx)
+
+	var returnData any
+	var err error
+
+	switch req.Path {
+	case "/servers":
+		returnData, err = d.getServers(ctx)
+	case "/load-balancers":
+		returnData, err = d.getLoadBalancers(ctx)
+	}
+
+	if err != nil {
+		ctxLogger.Warn("failed to respond to resource call", "path", req.Path, "error", err)
+		return sender.Send(&backend.CallResourceResponse{
+			Status: http.StatusInternalServerError,
+		})
+	}
+
+	body, err := json.Marshal(returnData)
+	if err != nil {
+		ctxLogger.Warn("failed to encode json body in resource call", "path", req.Path, "error", err)
+		return sender.Send(&backend.CallResourceResponse{
+			Status: http.StatusInternalServerError,
+		})
+	}
+
+	return sender.Send(&backend.CallResourceResponse{
+		Status: http.StatusOK,
+		Body:   body,
+	})
+}
+
+type SelectableValue struct {
+	Value int64  `json:"value"`
+	Label string `json:"label"`
+}
+
+func (d *Datasource) getServers(ctx context.Context) ([]SelectableValue, error) {
+	servers, err := d.client.Server.All(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	selectableValues := make([]SelectableValue, 0, len(servers))
+	for _, server := range servers {
+		selectableValues = append(selectableValues, SelectableValue{
+			Value: server.ID,
+			Label: server.Name,
+		})
+	}
+
+	return selectableValues, nil
+}
+
+func (d *Datasource) getLoadBalancers(ctx context.Context) ([]SelectableValue, error) {
+	loadBalancers, err := d.client.LoadBalancer.All(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	selectableValues := make([]SelectableValue, 0, len(loadBalancers))
+	for _, loadBalancer := range loadBalancers {
+		selectableValues = append(selectableValues, SelectableValue{
+			Value: loadBalancer.ID,
+			Label: loadBalancer.Name,
+		})
+	}
+
+	return selectableValues, nil
 }
