@@ -20,6 +20,7 @@ export interface Query extends DataQuery {
 export const DEFAULT_QUERY: Partial<Query> = {
   queryType: 'metrics',
   resourceType: 'server',
+  metricsType: 'cpu',
 };
 
 export const DEFAULT_VARIABLE_QUERY: Partial<Query> = {

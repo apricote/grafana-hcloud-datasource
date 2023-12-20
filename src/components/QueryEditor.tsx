@@ -48,8 +48,7 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
   };
 
   const availableMetricTypes = query.resourceType === 'server' ? ServerMetricsTypes : LoadBalancerMetricsTypes;
-
-  const { queryType, resourceType, metricsType, resourceIDs } = query;
+  const { queryType, resourceType, metricsType } = query;
 
   return (
     <InlineFieldRow>
@@ -82,8 +81,7 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
               onChange={onMetricsTypeChange}
             ></Select>
           </InlineField>
-
-          <InlineField label={resourceType === 'server' ? 'Servers' : 'Load Balancers'}>
+          <InlineField required label={resourceType === 'server' ? 'Servers' : 'Load Balancers'}>
             <AsyncMultiSelect
               key={resourceType} // Force reloading options when the key changes
               loadOptions={loadResources(datasource, resourceType)}
