@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { AsyncMultiSelect, InlineField, InlineFieldRow, Select } from '@grafana/ui';
 import { QueryEditorProps, SelectableValue } from '@grafana/data';
 import { DataSource } from '../datasource';
@@ -40,7 +40,28 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
     onRunQuery();
   };
 
-  const [formResourceIDs, setFormResourceIDs] = useState<Array<SelectableValue<number>>>([]);
+  const { queryType, resourceType, metricsType, resourceIDs } = query;
+
+  const multiselectLoadResources = useCallback(
+    async (_: string) => {
+      switch (resourceType) {
+        case 'server': {
+          return datasource.getServers();
+        }
+        case 'load-balancer': {
+          return datasource.getLoadBalancers();
+        }
+      }
+    },
+    [datasource, resourceType]
+  );
+
+  // Foobar
+  // TODO Properly restore the selected resources after the options are loaded,
+  // currently we always show empty form even if the query has IDs set
+  const [formResourceIDs, setFormResourceIDs] = useState<Array<SelectableValue<number>>>(
+    resourceIDs.map((id) => ({ value: id }))
+  );
   const onResourceNameOrIDsChange = (newValues: Array<SelectableValue<number>>) => {
     onChange({ ...query, resourceIDs: newValues.map((value) => value.value!) });
     onRunQuery();
@@ -48,7 +69,6 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
   };
 
   const availableMetricTypes = query.resourceType === 'server' ? ServerMetricsTypes : LoadBalancerMetricsTypes;
-  const { queryType, resourceType, metricsType } = query;
 
   return (
     <InlineFieldRow>
@@ -84,10 +104,11 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
           <InlineField required label={resourceType === 'server' ? 'Servers' : 'Load Balancers'}>
             <AsyncMultiSelect
               key={resourceType} // Force reloading options when the key changes
-              loadOptions={loadResources(datasource, resourceType)}
+              loadOptions={multiselectLoadResources}
               value={formResourceIDs}
               onChange={onResourceNameOrIDsChange}
               defaultOptions
+              isSearchable={false} // Currently not implemented in loadResources + API methods
             ></AsyncMultiSelect>
           </InlineField>
         </>
@@ -95,14 +116,3 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
     </InlineFieldRow>
   );
 }
-
-const loadResources = (datasource: DataSource, resourceType: Query['resourceType']) => async (_: string) => {
-  switch (resourceType) {
-    case 'server': {
-      return datasource.getServers();
-    }
-    case 'load-balancer': {
-      return datasource.getLoadBalancers();
-    }
-  }
-};

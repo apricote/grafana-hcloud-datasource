@@ -21,6 +21,7 @@ export const DEFAULT_QUERY: Partial<Query> = {
   queryType: 'metrics',
   resourceType: 'server',
   metricsType: 'cpu',
+  resourceIDs: [],
 };
 
 export const DEFAULT_VARIABLE_QUERY: Partial<Query> = {
