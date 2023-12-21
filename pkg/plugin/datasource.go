@@ -266,8 +266,8 @@ func (d *Datasource) queryMetrics(ctx context.Context, query backend.DataQuery) 
 		TimeRange:    query.TimeRange,
 		Step:         step,
 	})
-	for _, serverMetrics := range metrics {
-		resp.Frames = append(resp.Frames, serverMetricsToFrames(serverMetrics)...)
+	for id, serverMetrics := range metrics {
+		resp.Frames = append(resp.Frames, serverMetricsToFrames(id, serverMetrics)...)
 	}
 
 	return resp
@@ -289,12 +289,12 @@ func stepSize(timeRange backend.TimeRange, interval time.Duration, maxDataPoints
 	return step
 }
 
-func serverMetricsToFrames(metrics *hcloud.ServerMetrics) []*data.Frame {
+func serverMetricsToFrames(id int64, metrics *hcloud.ServerMetrics) []*data.Frame {
 	frames := make([]*data.Frame, 0, len(metrics.TimeSeries))
 
 	// get all keys in map metrics.TimeSeries
 	for name, series := range metrics.TimeSeries {
-		frame := data.NewFrame(name)
+		frame := data.NewFrame("")
 
 		timestamps := make([]time.Time, 0, len(series))
 		values := make([]float64, 0, len(series))
@@ -310,57 +310,9 @@ func serverMetricsToFrames(metrics *hcloud.ServerMetrics) []*data.Frame {
 			values = append(values, parsedValue)
 		}
 
-		valuesField := data.NewField("values", nil, values)
-
-		switch name {
-		case "cpu":
-			valuesField.Config = &data.FieldConfig{
-				DisplayName: "CPU Usage",
-				Unit:        "percent",
-			}
-		case "disk.0.iops.read":
-			valuesField.Config = &data.FieldConfig{
-				DisplayName: "Disk IOPS Read",
-				Unit:        "iops",
-			}
-		case "disk.0.iops.write":
-			valuesField.Config = &data.FieldConfig{
-				DisplayName: "Disk IOPS Write",
-				Unit:        "iops",
-			}
-		case "disk.0.bandwidth.read":
-			valuesField.Config = &data.FieldConfig{
-				DisplayName: "Disk Bandwidth Read",
-				Unit:        "bytes/sec(IEC)",
-			}
-		case "disk.0.bandwidth.write":
-			valuesField.Config = &data.FieldConfig{
-				DisplayName: "Disk Bandwidth Write",
-				Unit:        "bytes/sec(IEC)",
-			}
-		case "network.0.pps.in":
-			valuesField.Config = &data.FieldConfig{
-				DisplayName: "Network PPS Received",
-				Unit:        "packets/sec",
-			}
-		case "network.0.pps.out":
-			valuesField.Config = &data.FieldConfig{
-				DisplayName: "Network PPS Sent",
-				Unit:        "packets/sec",
-			}
-		case "network.0.bandwidth.in":
-			valuesField.Config = &data.FieldConfig{
-				DisplayName: "Network Bandwidth Received",
-				Unit:        "bytes/sec(IEC)",
-			}
-		case "network.0.bandwidth.out":
-			valuesField.Config = &data.FieldConfig{
-				DisplayName: "Network Bandwidth Sent",
-				Unit:        "bytes/sec(IEC)",
-			}
-		default:
-			// Unknown series, not a problem, we just do not have
-			// a good display name and unit
+		valuesField := data.NewField(serverSeriesToDisplayName[name], data.Labels{"id": strconv.FormatInt(id, 10)}, values)
+		valuesField.Config = &data.FieldConfig{
+			Unit: serverSeriesToUnit[name],
 		}
 
 		frame.Fields = append(frame.Fields,
@@ -395,34 +347,6 @@ func (d *Datasource) CheckHealth(ctx context.Context, _ *backend.CheckHealthRequ
 		Status:  backend.HealthStatusOk,
 		Message: "Successfully connected to Hetzner Cloud API",
 	}, nil
-}
-
-func metricTypeToServerMetricType(metricsType MetricsType) hcloud.ServerMetricType {
-	switch metricsType {
-	case MetricsTypeServerCPU:
-		return hcloud.ServerMetricCPU
-	case MetricsTypeServerDisk:
-		return hcloud.ServerMetricDisk
-	case MetricsTypeServerNetwork:
-		return hcloud.ServerMetricNetwork
-	default:
-		return hcloud.ServerMetricCPU
-	}
-}
-
-func metricTypeToLoadBalancerMetricType(metricsType MetricsType) hcloud.LoadBalancerMetricType {
-	switch metricsType {
-	case MetricsTypeLoadBalancerOpenConnections:
-		return hcloud.LoadBalancerMetricOpenConnections
-	case MetricsTypeLoadBalancerConnectionsPerSecond:
-		return hcloud.LoadBalancerMetricConnectionsPerSecond
-	case MetricsTypeLoadBalancerRequestsPerSecond:
-		return hcloud.LoadBalancerMetricRequestsPerSecond
-	case MetricsTypeLoadBalancerBandwidth:
-		return hcloud.LoadBalancerMetricBandwidth
-	default:
-		return hcloud.LoadBalancerMetricOpenConnections
-	}
 }
 
 func (d *Datasource) CallResource(ctx context.Context, req *backend.CallResourceRequest, sender backend.CallResourceResponseSender) error {
@@ -501,7 +425,7 @@ func (d *Datasource) getLoadBalancers(ctx context.Context) ([]SelectableValue, e
 func (d *Datasource) serverAPIRequestFn(ctx context.Context, id int64, opts RequestOpts) (*hcloud.ServerMetrics, error) {
 	hcloudGoMetricsTypes := make([]hcloud.ServerMetricType, 0, len(opts.MetricsTypes))
 	for _, metricsType := range opts.MetricsTypes {
-		hcloudGoMetricsTypes = append(hcloudGoMetricsTypes, metricTypeToServerMetricType(metricsType))
+		hcloudGoMetricsTypes = append(hcloudGoMetricsTypes, metricTypeToServerMetricType[metricsType])
 	}
 
 	metrics, _, err := d.client.Server.GetMetrics(ctx, &hcloud.Server{ID: id}, hcloud.ServerGetMetricsOpts{
@@ -517,7 +441,7 @@ func (d *Datasource) serverAPIRequestFn(ctx context.Context, id int64, opts Requ
 func (d *Datasource) loadBalancerAPIRequestFn(ctx context.Context, id int64, opts RequestOpts) (*hcloud.LoadBalancerMetrics, error) {
 	hcloudGoMetricsTypes := make([]hcloud.LoadBalancerMetricType, 0, len(opts.MetricsTypes))
 	for _, metricsType := range opts.MetricsTypes {
-		hcloudGoMetricsTypes = append(hcloudGoMetricsTypes, metricTypeToLoadBalancerMetricType(metricsType))
+		hcloudGoMetricsTypes = append(hcloudGoMetricsTypes, metricTypeToLoadBalancerMetricType[metricsType])
 	}
 
 	metrics, _, err := d.client.LoadBalancer.GetMetrics(ctx, &hcloud.LoadBalancer{ID: id}, hcloud.LoadBalancerGetMetricsOpts{
@@ -537,11 +461,66 @@ var (
 		MetricsTypeServerNetwork: {"network.0.pps.in", "network.0.pps.out", "network.0.bandwidth.in", "network.0.bandwidth.out"},
 	}
 
+	serverSeriesToDisplayName = map[string]string{
+		// cpu
+		"cpu": "Usage",
+
+		// disk
+		"disk.0.iops.read":       "IOPS Read",
+		"disk.0.iops.write":      "IOPS Write",
+		"disk.0.bandwidth.read":  "Bandwidth Read",
+		"disk.0.bandwidth.write": "Bandwidth Write",
+
+		//network
+		"network.0.pps.in":        "PPS Received",
+		"network.0.pps.out":       "PPS Sent",
+		"network.0.bandwidth.in":  "Bandwidth Received",
+		"network.0.bandwidth.out": "Bandwidth Sent",
+	}
+
+	serverSeriesToUnit = map[string]string{
+		// cpu
+		"cpu": "percent",
+
+		// disk
+		"disk.0.iops.read":       "iops",
+		"disk.0.iops.write":      "iops",
+		"disk.0.bandwidth.read":  "bytes/sec(IEC)",
+		"disk.0.bandwidth.write": "bytes/sec(IEC)",
+
+		//network
+		"network.0.pps.in":        "packets/sec",
+		"network.0.pps.out":       "packets/sec",
+		"network.0.bandwidth.in":  "bytes/sec(IEC)",
+		"network.0.bandwidth.out": "bytes/sec(IEC)",
+	}
+
+	metricTypeToServerMetricType = map[MetricsType]hcloud.ServerMetricType{
+		MetricsTypeServerCPU:     hcloud.ServerMetricCPU,
+		MetricsTypeServerDisk:    hcloud.ServerMetricDisk,
+		MetricsTypeServerNetwork: hcloud.ServerMetricNetwork,
+	}
+
 	loadBalancerMetricsTypeSeries = map[MetricsType][]string{
 		MetricsTypeLoadBalancerOpenConnections:      {"open_connections"},
 		MetricsTypeLoadBalancerConnectionsPerSecond: {"connections_per_second"},
 		MetricsTypeLoadBalancerRequestsPerSecond:    {"requests_per_second"},
 		MetricsTypeLoadBalancerBandwidth:            {"bandwidth.in", "bandwidth.out"},
+	}
+
+	loadBalancerSeriesToDisplayName = map[string]string{
+		// TODO
+	}
+
+	loadBalancerSeriesToUnit = map[string]string{
+		// TODO
+	}
+
+	metricTypeToLoadBalancerMetricType = map[MetricsType]hcloud.LoadBalancerMetricType{
+		MetricsTypeLoadBalancerOpenConnections:      hcloud.LoadBalancerMetricOpenConnections,
+		MetricsTypeLoadBalancerConnectionsPerSecond: hcloud.LoadBalancerMetricConnectionsPerSecond,
+		MetricsTypeLoadBalancerRequestsPerSecond:    hcloud.LoadBalancerMetricRequestsPerSecond,
+		MetricsTypeLoadBalancerBandwidth:            hcloud.LoadBalancerMetricBandwidth,
 	}
 )
 

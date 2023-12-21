@@ -67,11 +67,16 @@ type request[M HCloudMetrics] struct {
 }
 
 type response[M HCloudMetrics] struct {
+	id   int64
+	opts RequestOpts
+
 	metrics *M
 	err     error
 }
 
-func (q *QueryRunner[M]) RequestMetrics(ctx context.Context, ids []int64, opts RequestOpts) ([]*M, error) {
+// RequestMetrics requests metrics matching the arguments given.
+// It will return a slice of metrics for each id in the same order
+func (q *QueryRunner[M]) RequestMetrics(ctx context.Context, ids []int64, opts RequestOpts) (map[int64]*M, error) {
 	responseCh := make(chan response[M], len(ids))
 	req := request[M]{
 		opts:       opts,
@@ -85,7 +90,7 @@ func (q *QueryRunner[M]) RequestMetrics(ctx context.Context, ids []int64, opts R
 	q.startBuffer()
 	q.mutex.Unlock()
 
-	results := make([]*M, 0, len(ids))
+	results := make(map[int64]*M, len(ids))
 
 	for len(results) < len(ids) {
 		select {
@@ -97,7 +102,7 @@ func (q *QueryRunner[M]) RequestMetrics(ctx context.Context, ids []int64, opts R
 				return nil, resp.err
 			}
 
-			results = append(results, resp.metrics)
+			results[resp.id] = resp.metrics
 		}
 	}
 
@@ -111,12 +116,16 @@ func (q *QueryRunner[M]) startBuffer() {
 	}
 }
 
+// sendRequests sends the minimal amount of requests necessary to satisfy all
+// requests that are in q.requests at the start of the method. It then sends
+// responses to all requests that match the response, even if the request was
+// only added to q.requests while the API requests were in flight. After that,
+// it removes all requests that have been answered from q.requests and resets
+// the buffer timer.
 func (q *QueryRunner[M]) sendRequests() {
 	ctx := context.Background()
 
 	q.mutex.Lock()
-	// TODO: only lock mutex for deduplicating requests and sending the responses, we can still accept more requests
-	// while talking to the api
 	defer q.resetBufferTimer()
 
 	// Actual length might be larger, but its a good starting point
@@ -145,14 +154,7 @@ func (q *QueryRunner[M]) sendRequests() {
 	// We are finished reading from q for now, lets unlock the mutex until we need it again
 	q.mutex.Unlock()
 
-	type responseFoo struct {
-		id   int64
-		opts RequestOpts
-
-		resp response[M]
-	}
-
-	responses := make(chan responseFoo)
+	responses := make(chan response[M])
 	wg := sync.WaitGroup{}
 	wg.Add(len(allRequests))
 	go func() {
@@ -165,10 +167,12 @@ func (q *QueryRunner[M]) sendRequests() {
 		go func() {
 			defer wg.Done()
 			metrics, err := q.apiRequestFn(ctx, req.id, req.opts)
-			responses <- responseFoo{
+			responses <- response[M]{
 				id:   req.id,
 				opts: req.opts,
-				resp: response[M]{metrics: metrics, err: err},
+
+				metrics: metrics,
+				err:     err,
 			}
 		}()
 	}
@@ -184,14 +188,12 @@ func (q *QueryRunner[M]) sendRequests() {
 		newRequestsForID := make([]request[M], 0, len(q.requests[resp.id])-1)
 		for _, req := range q.requests[resp.id] {
 			if resp.opts.matches(req.opts) {
-				if resp.resp.err != nil {
-					req.responseCh <- response[M]{
-						err: resp.resp.err,
-					}
-				} else {
-					req.responseCh <- response[M]{
-						metrics: q.filterMetricsFn(resp.resp.metrics, req.opts.MetricsTypes),
-					}
+				req.responseCh <- response[M]{
+					id:   resp.id,
+					opts: req.opts,
+
+					metrics: q.filterMetricsFn(resp.metrics, req.opts.MetricsTypes),
+					err:     resp.err,
 				}
 			} else {
 				newRequestsForID = append(newRequestsForID, req)
@@ -207,11 +209,11 @@ func (q *QueryRunner[M]) sendRequests() {
 
 }
 
+// resetBufferTimer will reset the buffer timer so new requests can be sent.
+// It will also trigger a new buffer period if unanswered requests remain in the [q.requests]
 func (q *QueryRunner[M]) resetBufferTimer() {
-	// Reset buffer timer
 	q.bufferTimer = nil
 
-	// TODO: only required once we release mutex while making api requests
 	if len(q.requests) > 0 {
 		q.startBuffer()
 	}
