@@ -2,12 +2,15 @@ package plugin
 
 import (
 	"context"
-	"github.com/apricote/grafana-hcloud-datasource/pkg/set"
-	"github.com/grafana/grafana-plugin-sdk-go/backend"
-	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 	"slices"
 	"sync"
 	"time"
+
+	"github.com/apricote/grafana-hcloud-datasource/pkg/set"
+	"github.com/grafana/grafana-plugin-sdk-go/backend"
+	"github.com/sourcegraph/conc/iter"
+
+	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 )
 
 type HCloudMetrics interface {
@@ -36,8 +39,6 @@ type FilterMetricsFn[M HCloudMetrics] func(metrics *M, metricsTypes []MetricsTyp
 //
 // The downside is that responses are slower, because we always wait for the buffer period to end before sending the
 // requests.
-//
-// Internally the QueryRunner
 type QueryRunner[M HCloudMetrics] struct {
 	mutex sync.Mutex
 
@@ -128,7 +129,7 @@ func (q *QueryRunner[M]) sendRequests() {
 	q.mutex.Lock()
 	defer q.resetBufferTimer()
 
-	// Actual length might be larger, but its a good starting point
+	// Actual length might be larger, but it is a reasonable starting point
 	allRequests := make([]struct {
 		id   int64
 		opts RequestOpts
@@ -154,59 +155,51 @@ func (q *QueryRunner[M]) sendRequests() {
 	// We are finished reading from q for now, lets unlock the mutex until we need it again
 	q.mutex.Unlock()
 
-	responses := make(chan response[M])
-	wg := sync.WaitGroup{}
-	wg.Add(len(allRequests))
-	go func() {
-		wg.Wait()
-		close(responses)
-	}()
+	iter.ForEach(allRequests, func(req *struct {
+		id   int64
+		opts RequestOpts
+	}) {
+		metrics, err := q.apiRequestFn(ctx, req.id, req.opts)
 
-	for _, req := range allRequests {
-		req := req
-		go func() {
-			defer wg.Done()
-			metrics, err := q.apiRequestFn(ctx, req.id, req.opts)
-			responses <- response[M]{
-				id:   req.id,
-				opts: req.opts,
+		q.sendResponse(response[M]{
+			id:   req.id,
+			opts: req.opts,
 
-				metrics: metrics,
-				err:     err,
-			}
-		}()
-	}
+			metrics: metrics,
+			err:     err,
+		})
+	})
+}
 
-	// Lock the mutex again to get a consistent view of q.requests and to be able to delete/respond there
+// sendResponse sends a response to all requests that match it
+// and removes them from the q.requests buffer.
+// Requires locking q.mutex to remove the requests from the buffer.
+func (q *QueryRunner[M]) sendResponse(resp response[M]) {
 	q.mutex.Lock()
 	defer q.mutex.Unlock()
 
-	// Iterate over all received responses
-	for resp := range responses {
-		// Send the response to all open requests that match it
-		// Remove all requests that have received a response from q.requests
-		newRequestsForID := make([]request[M], 0, len(q.requests[resp.id])-1)
-		for _, req := range q.requests[resp.id] {
-			if resp.opts.matches(req.opts) {
-				req.responseCh <- response[M]{
-					id:   resp.id,
-					opts: req.opts,
+	// Send the response to all open requests that match it
+	// Remove all requests that have received a response from q.requests
+	newRequestsForID := make([]request[M], 0, len(q.requests[resp.id])-1)
+	for _, req := range q.requests[resp.id] {
+		if resp.opts.matches(req.opts) {
+			req.responseCh <- response[M]{
+				id:   resp.id,
+				opts: req.opts,
 
-					metrics: q.filterMetricsFn(resp.metrics, req.opts.MetricsTypes),
-					err:     resp.err,
-				}
-			} else {
-				newRequestsForID = append(newRequestsForID, req)
+				metrics: q.filterMetricsFn(resp.metrics, req.opts.MetricsTypes),
+				err:     resp.err,
 			}
-		}
-
-		if len(newRequestsForID) == 0 {
-			delete(q.requests, resp.id)
 		} else {
-			q.requests[resp.id] = newRequestsForID
+			newRequestsForID = append(newRequestsForID, req)
 		}
 	}
 
+	if len(newRequestsForID) == 0 {
+		delete(q.requests, resp.id)
+	} else {
+		q.requests[resp.id] = newRequestsForID
+	}
 }
 
 // resetBufferTimer will reset the buffer timer so new requests can be sent.
