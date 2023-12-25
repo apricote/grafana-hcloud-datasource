@@ -1,0 +1,10 @@
+apiVersion: 1
+
+providers:
+  - name: "apricote-hcloud-datasource"
+    orgId: 1
+    folder: ""
+    type: file
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards
