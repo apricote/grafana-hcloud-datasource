@@ -25,7 +25,7 @@
     {
       "datasource": {
         "type": "apricote-hcloud-datasource",
-        "uid": "P21A64097295FB46E"
+        "uid": "${datasource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -102,20 +102,14 @@
         {
           "datasource": {
             "type": "apricote-hcloud-datasource",
-            "uid": "P21A64097295FB46E"
+            "uid": "${datasource}"
           },
-          "key": "Q-5e943adb-9d16-4d93-9552-dbe06ee2bf74-0",
           "metricsType": "cpu",
           "queryType": "metrics",
           "refId": "A",
           "resourceIDs": [
-            37454972,
-            40502672,
-            40502748,
-            40502756,
-            40502510,
-            40502371,
-            34838231
+            40488783,
+            40540648
           ],
           "resourceType": "server"
         }
@@ -126,7 +120,7 @@
     {
       "datasource": {
         "type": "apricote-hcloud-datasource",
-        "uid": "P21A64097295FB46E"
+        "uid": "${datasource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -203,20 +197,14 @@
         {
           "datasource": {
             "type": "apricote-hcloud-datasource",
-            "uid": "P21A64097295FB46E"
+            "uid": "${datasource}"
           },
-          "key": "Q-5e943adb-9d16-4d93-9552-dbe06ee2bf74-0",
           "metricsType": "disk",
           "queryType": "metrics",
           "refId": "A",
           "resourceIDs": [
-            37454972,
-            40502672,
-            40502748,
-            40502756,
-            40502510,
-            40502371,
-            34838231
+            40488783,
+            40540648
           ],
           "resourceType": "server"
         }
@@ -227,7 +215,7 @@
     {
       "datasource": {
         "type": "apricote-hcloud-datasource",
-        "uid": "P21A64097295FB46E"
+        "uid": "${datasource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -304,20 +292,14 @@
         {
           "datasource": {
             "type": "apricote-hcloud-datasource",
-            "uid": "P21A64097295FB46E"
+            "uid": "${datasource}"
           },
-          "key": "Q-5e943adb-9d16-4d93-9552-dbe06ee2bf74-0",
           "metricsType": "network",
           "queryType": "metrics",
           "refId": "A",
           "resourceIDs": [
-            37454972,
-            40502672,
-            40502748,
-            40502756,
-            40502510,
-            40502371,
-            34838231
+            40540648,
+            40488783
           ],
           "resourceType": "server"
         }
@@ -335,8 +317,8 @@
       {
         "current": {
           "selected": false,
-          "text": "home-cloud",
-          "value": "home-cloud"
+          "text": "hcloud",
+          "value": "hcloud"
         },
         "hide": 0,
         "includeAll": false,
@@ -345,6 +327,7 @@
         "name": "datasource",
         "options": [],
         "query": "apricote-hcloud-datasource",
+        "queryValue": "",
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
@@ -371,6 +354,6 @@
   "timezone": "",
   "title": "Hetzner Cloud Datasource Demo",
   "uid": "d351478f-c755-4390-b0ee-f07b9a9081e1",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }
