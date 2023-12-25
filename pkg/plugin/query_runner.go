@@ -208,6 +208,7 @@ func (q *QueryRunner[M]) resetBufferTimer() {
 	q.bufferTimer = nil
 
 	if len(q.requests) > 0 {
+		logger.Info("Reset buffer timer but there are still open requests, starting new buffer period", "openResources", len(q.requests))
 		q.startBuffer()
 	}
 }

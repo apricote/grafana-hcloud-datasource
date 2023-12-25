@@ -4,18 +4,21 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/apricote/grafana-hcloud-datasource/pkg/logutil"
-	"github.com/grafana/grafana-plugin-sdk-go/build"
-	"github.com/prometheus/client_golang/prometheus"
 	"math"
 	"net/http"
 	"strconv"
 	"time"
 
+	"github.com/apricote/grafana-hcloud-datasource/pkg/logutil"
+	"github.com/grafana/grafana-plugin-sdk-go/build"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sourcegraph/conc/stream"
+
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/instancemgmt"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 	"github.com/grafana/grafana-plugin-sdk-go/data"
+
 	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 )
 
@@ -136,25 +139,30 @@ func (d *Datasource) Dispose() {
 // contains Frames ([]*Frame).
 func (d *Datasource) QueryData(ctx context.Context, req *backend.QueryDataRequest) (*backend.QueryDataResponse, error) {
 	// create response struct
-	response := backend.NewQueryDataResponse()
+	resp := backend.NewQueryDataResponse()
 
 	// loop over queries and execute them individually.
+	s := stream.New().WithMaxGoroutines(10)
 	for _, q := range req.Queries {
-		var res backend.DataResponse
+		q := q
+		s.Go(func() stream.Callback {
+			var res backend.DataResponse
 
-		switch q.QueryType {
-		case QueryTypeResourceList:
-			res = d.queryResourceList(ctx, q)
-		case QueryTypeMetrics:
-			res = d.queryMetrics(ctx, q)
-		}
+			switch q.QueryType {
+			case QueryTypeResourceList:
+				res = d.queryResourceList(ctx, q)
+			case QueryTypeMetrics:
+				res = d.queryMetrics(ctx, q)
+			}
 
-		// save the response in a hashmap
-		// based on with RefID as identifier
-		response.Responses[q.RefID] = res
+			// conc makes sure that all callbacks are called in
+			// the same goroutine and do not need a mutex
+			return func() { resp.Responses[q.RefID] = res }
+		})
 	}
+	s.Wait()
 
-	return response, nil
+	return resp, nil
 }
 
 func (d *Datasource) queryResourceList(ctx context.Context, query backend.DataQuery) backend.DataResponse {
