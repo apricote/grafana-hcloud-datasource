@@ -3,13 +3,24 @@ import { Badge, Checkbox, Field, FieldSet, Icon, LinkButton, SecretInput } from 
 import { DataSourcePluginOptionsEditorProps } from '@grafana/data';
 import { DataSourceOptions, SecureJsonData } from '../types';
 
+const EXPECTED_API_TOKEN_LENGTH = 64;
+
 interface Props extends DataSourcePluginOptionsEditorProps<DataSourceOptions> {}
 
 export function ConfigEditor(props: Props) {
   const { onOptionsChange, options } = props;
 
   // Secure field (only sent to the backend)
+  const [apiTokenError, setAPITokenError] = React.useState<string | null>(null);
   const onAPITokenChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const token = event.target.value;
+
+    if (token.length !== EXPECTED_API_TOKEN_LENGTH) {
+      setAPITokenError(`Must be ${EXPECTED_API_TOKEN_LENGTH} characters long`);
+    } else {
+      setAPITokenError(null);
+    }
+
     onOptionsChange({
       ...options,
       secureJsonData: {
@@ -51,6 +62,8 @@ export function ConfigEditor(props: Props) {
       <Field
         label="API Token"
         required
+        invalid={apiTokenError !== null}
+        error={apiTokenError}
         description={
           <>
             You can create the token at{' '}
@@ -80,7 +93,8 @@ export function ConfigEditor(props: Props) {
           isConfigured={(secureJsonFields && secureJsonFields.apiToken) as boolean}
           value={secureJsonData.apiToken || ''}
           placeholder="The read-only API Token for your Project"
-          width={48}
+          prefix={<Icon name="lock" />}
+          width={EXPECTED_API_TOKEN_LENGTH}
           onReset={onResetAPIToken}
           onChange={onAPITokenChange}
         />
