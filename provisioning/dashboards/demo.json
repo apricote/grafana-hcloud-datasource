@@ -104,6 +104,7 @@
             "type": "apricote-hcloud-datasource",
             "uid": "${datasource}"
           },
+          "legendFormat": "{{ name }}",
           "metricsType": "cpu",
           "queryType": "metrics",
           "refId": "A",
@@ -330,9 +331,13 @@
       },
       {
         "current": {
-          "selected": false,
-          "text": "All",
-          "value": "$__all"
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
         },
         "datasource": {
           "type": "apricote-hcloud-datasource",
@@ -359,9 +364,13 @@
       },
       {
         "current": {
-          "selected": false,
-          "text": "All",
-          "value": "$__all"
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
         },
         "datasource": {
           "type": "apricote-hcloud-datasource",
@@ -408,6 +417,6 @@
   "timezone": "",
   "title": "Hetzner Cloud Datasource Demo",
   "uid": "d351478f-c755-4390-b0ee-f07b9a9081e1",
-  "version": 12,
+  "version": 15,
   "weekStart": ""
 }
