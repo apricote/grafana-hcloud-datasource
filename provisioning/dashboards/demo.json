@@ -107,11 +107,10 @@
           "metricsType": "cpu",
           "queryType": "metrics",
           "refId": "A",
-          "resourceIDs": [
-            40488783,
-            40540648
-          ],
-          "resourceType": "server"
+          "resourceIDs": [],
+          "resourceIDsVariable": "$servers",
+          "resourceType": "server",
+          "selectBy": "name"
         }
       ],
       "title": "CPU",
@@ -202,11 +201,10 @@
           "metricsType": "disk",
           "queryType": "metrics",
           "refId": "A",
-          "resourceIDs": [
-            40488783,
-            40540648
-          ],
-          "resourceType": "server"
+          "resourceIDs": [],
+          "resourceIDsVariable": "$servers",
+          "resourceType": "server",
+          "selectBy": "name"
         }
       ],
       "title": "Disk",
@@ -297,11 +295,10 @@
           "metricsType": "network",
           "queryType": "metrics",
           "refId": "A",
-          "resourceIDs": [
-            40540648,
-            40488783
-          ],
-          "resourceType": "server"
+          "resourceIDs": [],
+          "resourceIDsVariable": "$servers",
+          "resourceType": "server",
+          "selectBy": "name"
         }
       ],
       "title": "Network",
@@ -317,8 +314,8 @@
       {
         "current": {
           "selected": false,
-          "text": "hcloud",
-          "value": "hcloud"
+          "text": "home-cloud",
+          "value": "home-cloud"
         },
         "hide": 0,
         "includeAll": false,
@@ -332,6 +329,66 @@
         "regex": "",
         "skipUrlSync": false,
         "type": "datasource"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "apricote-hcloud-datasource",
+          "uid": "${datasource}"
+        },
+        "definition": "",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Servers",
+        "multi": true,
+        "name": "servers",
+        "options": [],
+        "query": {
+          "labelSelectors": [],
+          "queryType": "resource-list",
+          "resourceIDs": [],
+          "resourceType": "server"
+        },
+        "refresh": 1,
+        "regex": "(?<text>.*) : (?<value>.*)",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "current": {
+          "isNone": true,
+          "selected": false,
+          "text": "None",
+          "value": ""
+        },
+        "datasource": {
+          "type": "apricote-hcloud-datasource",
+          "uid": "${datasource}"
+        },
+        "definition": "",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Load Balancers",
+        "multi": false,
+        "name": "load_balancers",
+        "options": [],
+        "query": {
+          "labelSelectors": [],
+          "metricsType": "open-connections",
+          "queryType": "resource-list",
+          "resourceIDs": [],
+          "resourceType": "load-balancer"
+        },
+        "refresh": 1,
+        "regex": "(?<text>.*) : (?<value>.*)",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
       }
     ]
   },
@@ -354,6 +411,6 @@
   "timezone": "",
   "title": "Hetzner Cloud Datasource Demo",
   "uid": "d351478f-c755-4390-b0ee-f07b9a9081e1",
-  "version": 2,
+  "version": 9,
   "weekStart": ""
 }

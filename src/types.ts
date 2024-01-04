@@ -14,9 +14,10 @@ export interface Query extends DataQuery {
   resourceType: 'server' | 'load-balancer';
   metricsType: (typeof ServerMetricsTypes)[number] | (typeof LoadBalancerMetricsTypes)[number];
 
-  selectBy: 'label' | 'id';
+  selectBy: 'label' | 'id' | 'name';
   labelSelectors: string[];
   resourceIDs: number[];
+  resourceIDsVariable: string;
 }
 
 export const DEFAULT_QUERY: Partial<Query> = {
@@ -26,11 +27,15 @@ export const DEFAULT_QUERY: Partial<Query> = {
   selectBy: 'label',
   labelSelectors: [],
   resourceIDs: [],
+  resourceIDsVariable: '',
 };
 
 export const DEFAULT_VARIABLE_QUERY: Partial<Query> = {
   queryType: 'resource-list',
   resourceType: 'server',
+
+  labelSelectors: [],
+  resourceIDs: [],
 };
 
 /**

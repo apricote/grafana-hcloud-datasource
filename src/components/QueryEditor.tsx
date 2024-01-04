@@ -3,6 +3,7 @@ import {
   AsyncMultiSelect,
   InlineField,
   InlineFieldRow,
+  Input,
   LinkButton,
   RadioButtonGroup,
   Select,
@@ -48,7 +49,15 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
     onRunQuery();
   };
 
-  const { queryType, resourceType, metricsType, resourceIDs, selectBy, labelSelectors } = query;
+  const {
+    queryType,
+    resourceType,
+    metricsType,
+    selectBy,
+    labelSelectors = [],
+    resourceIDs = [],
+    resourceIDsVariable = '',
+  } = query;
 
   const multiselectLoadResources = useCallback(
     async (_: string) => {
@@ -99,6 +108,15 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
           onChange={onResourceTypeChange}
         ></Select>
       </InlineField>
+      {queryType === 'resource-list' && (
+        <LabelSelectorInput
+          values={labelSelectors}
+          onChange={(v) => {
+            onChange({ ...query, labelSelectors: v });
+            onRunQuery();
+          }}
+        />
+      )}
       {queryType === 'metrics' && (
         <>
           <InlineField label="Metrics Type">
@@ -118,6 +136,7 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
               options={[
                 { label: 'Labels', value: 'label', icon: 'filter' },
                 { label: 'IDs', value: 'id', icon: 'gf-layout-simple' },
+                { label: 'Variable', value: 'name', icon: 'grafana' },
               ]}
             />
           </InlineField>
@@ -141,6 +160,15 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
                 defaultOptions
                 isSearchable={false} // Currently not implemented in loadResources + API methods
               ></AsyncMultiSelect>
+            </InlineField>
+          )}
+          {selectBy === 'name' && (
+            <InlineField label={'Variable Name'} tooltip={'Make sure to prefix with $'}>
+              <Input
+                value={resourceIDsVariable}
+                placeholder={'$variableName'}
+                onChange={(e) => onChange({ ...query, resourceIDsVariable: e.currentTarget.value })}
+              ></Input>
             </InlineField>
           )}
         </>

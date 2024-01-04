@@ -1,5 +1,5 @@
-import { DataSourceInstanceSettings, CoreApp, SelectableValue } from '@grafana/data';
-import { DataSourceWithBackend } from '@grafana/runtime';
+import { DataSourceInstanceSettings, CoreApp, SelectableValue, ScopedVars } from '@grafana/data';
+import { DataSourceWithBackend, getTemplateSrv } from '@grafana/runtime';
 
 import { Query, DataSourceOptions, DEFAULT_QUERY } from './types';
 import { VariableSupport } from './variables';
@@ -9,6 +9,32 @@ export class DataSource extends DataSourceWithBackend<Query, DataSourceOptions> 
     super(instanceSettings);
 
     this.variables = new VariableSupport();
+  }
+
+  applyTemplateVariables(query: Query, scopedVars: ScopedVars): Query {
+    const templateSrv = getTemplateSrv();
+
+    if (query.labelSelectors) {
+      query.labelSelectors = query.labelSelectors.map((selector) =>
+        getTemplateSrv().replace(selector, scopedVars, 'json')
+      );
+    }
+
+    if (query.selectBy === 'name') {
+      query.selectBy = 'id';
+
+      const replacedValue = getTemplateSrv().replace(query.resourceIDsVariable, scopedVars, 'json');
+
+      if (replacedValue !== '') {
+        query.resourceIDs = (JSON.parse(replacedValue) as string[]).map((stringID) => parseInt(stringID, 10));
+      } else {
+        query.resourceIDs = [];
+      }
+    }
+
+    console.log('applyTemplateVariables', { query, scopedVars, vars: templateSrv.getVariables() });
+
+    return query;
   }
 
   getDefaultQuery(_: CoreApp): Partial<Query> {
@@ -21,5 +47,13 @@ export class DataSource extends DataSourceWithBackend<Query, DataSourceOptions> 
 
   async getLoadBalancers(): Promise<Array<SelectableValue<number>>> {
     return this.getResource('/load-balancers');
+  }
+
+  filterQuery(query: Query): boolean {
+    if (query.selectBy === 'name' && query.resourceIDsVariable === '') {
+      return false;
+    }
+
+    return true;
   }
 }

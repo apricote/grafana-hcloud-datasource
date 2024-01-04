@@ -178,7 +178,7 @@ func (d *Datasource) QueryData(ctx context.Context, req *backend.QueryDataReques
 }
 
 func (d *Datasource) queryResourceList(ctx context.Context, query backend.DataQuery) backend.DataResponse {
-	var response backend.DataResponse
+	var resp backend.DataResponse
 
 	queryData := QueryModel{}
 	err := json.Unmarshal(query.JSON, &queryData)
@@ -188,12 +188,13 @@ func (d *Datasource) queryResourceList(ctx context.Context, query backend.DataQu
 
 	switch queryData.ResourceType {
 	case ResourceTypeServer:
-		servers, err := d.client.Server.All(ctx)
+		servers, err := d.client.Server.AllWithOpts(ctx, hcloud.ServerListOpts{ListOpts: hcloud.ListOpts{LabelSelector: strings.Join(queryData.LabelSelectors, ", ")}})
 		if err != nil {
 			return backend.ErrDataResponseWithSource(backend.StatusInternal, backend.ErrorSourceDownstream, fmt.Sprintf("error getting servers: %v", err.Error()))
 		}
 
 		ids := make([]int64, 0, len(servers))
+		vars := make([]string, 0, len(servers))
 		names := make([]string, 0, len(servers))
 		serverTypes := make([]string, 0, len(servers))
 		status := make([]string, 0, len(servers))
@@ -201,6 +202,7 @@ func (d *Datasource) queryResourceList(ctx context.Context, query backend.DataQu
 
 		for _, server := range servers {
 			ids = append(ids, server.ID)
+			vars = append(vars, fmt.Sprintf("%s : %d", server.Name, server.ID))
 			names = append(names, server.Name)
 			serverTypes = append(serverTypes, server.ServerType.Name)
 			status = append(status, string(server.Status))
@@ -215,27 +217,30 @@ func (d *Datasource) queryResourceList(ctx context.Context, query backend.DataQu
 		frame := data.NewFrame("servers")
 		frame.Fields = append(frame.Fields,
 			data.NewField("id", nil, ids),
+			data.NewField("var", nil, vars),
 			data.NewField("name", nil, names),
 			data.NewField("server_type", nil, serverTypes),
 			data.NewField("status", nil, status),
 			data.NewField("labels", nil, labels),
 		)
 
-		response.Frames = append(response.Frames, frame)
+		resp.Frames = append(resp.Frames, frame)
 
 	case ResourceTypeLoadBalancer:
-		loadBalancers, err := d.client.LoadBalancer.All(ctx)
+		loadBalancers, err := d.client.LoadBalancer.AllWithOpts(ctx, hcloud.LoadBalancerListOpts{ListOpts: hcloud.ListOpts{LabelSelector: strings.Join(queryData.LabelSelectors, ", ")}})
 		if err != nil {
 			return backend.ErrDataResponseWithSource(backend.StatusInternal, backend.ErrorSourceDownstream, fmt.Sprintf("error getting load balancers: %v", err.Error()))
 		}
 
 		ids := make([]int64, 0, len(loadBalancers))
+		vars := make([]string, 0, len(loadBalancers))
 		names := make([]string, 0, len(loadBalancers))
 		loadBalancerTypes := make([]string, 0, len(loadBalancers))
 		labels := make([]json.RawMessage, 0, len(loadBalancers))
 
 		for _, lb := range loadBalancers {
 			ids = append(ids, lb.ID)
+			vars = append(vars, fmt.Sprintf("%s : %d", lb.Name, lb.ID))
 			names = append(names, lb.Name)
 			loadBalancerTypes = append(loadBalancerTypes, lb.LoadBalancerType.Name)
 
@@ -249,17 +254,18 @@ func (d *Datasource) queryResourceList(ctx context.Context, query backend.DataQu
 		frame := data.NewFrame("load-balancers")
 		frame.Fields = append(frame.Fields,
 			data.NewField("id", nil, ids),
+			data.NewField("var", nil, vars),
 			data.NewField("name", nil, names),
 			data.NewField("load_balancer_type", nil, loadBalancerTypes),
 			data.NewField("labels", nil, labels),
 		)
 
-		response.Frames = append(response.Frames, frame)
+		resp.Frames = append(resp.Frames, frame)
 	default:
 		return backend.ErrDataResponseWithSource(backend.StatusBadRequest, backend.ErrorSourcePlugin, fmt.Sprintf("unknown resource type: %v", queryData.ResourceType))
 	}
 
-	return response
+	return resp
 }
 
 func (d *Datasource) queryMetrics(ctx context.Context, query backend.DataQuery) backend.DataResponse {
