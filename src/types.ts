@@ -14,6 +14,8 @@ export interface Query extends DataQuery {
   resourceType: 'server' | 'load-balancer';
   metricsType: (typeof ServerMetricsTypes)[number] | (typeof LoadBalancerMetricsTypes)[number];
 
+  selectBy: 'label' | 'id';
+  labelSelectors: string[];
   resourceIDs: number[];
 }
 
@@ -21,6 +23,8 @@ export const DEFAULT_QUERY: Partial<Query> = {
   queryType: 'metrics',
   resourceType: 'server',
   metricsType: 'cpu',
+  selectBy: 'label',
+  labelSelectors: [],
   resourceIDs: [],
 };
 

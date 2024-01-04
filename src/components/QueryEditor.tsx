@@ -1,5 +1,13 @@
 import React, { useCallback, useState } from 'react';
-import { AsyncMultiSelect, InlineField, InlineFieldRow, Select } from '@grafana/ui';
+import {
+  AsyncMultiSelect,
+  InlineField,
+  InlineFieldRow,
+  LinkButton,
+  RadioButtonGroup,
+  Select,
+  TagsInput,
+} from '@grafana/ui';
 import { QueryEditorProps, SelectableValue } from '@grafana/data';
 import { DataSource } from '../datasource';
 import { DataSourceOptions, LoadBalancerMetricsTypes, Query, ServerMetricsTypes } from '../types';
@@ -40,7 +48,7 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
     onRunQuery();
   };
 
-  const { queryType, resourceType, metricsType, resourceIDs } = query;
+  const { queryType, resourceType, metricsType, resourceIDs, selectBy, labelSelectors } = query;
 
   const multiselectLoadResources = useCallback(
     async (_: string) => {
@@ -56,7 +64,6 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
     [datasource, resourceType]
   );
 
-  // Foobar
   // TODO Properly restore the selected resources after the options are loaded,
   // currently we always show empty form even if the query has IDs set
   const [formResourceIDs, setFormResourceIDs] = useState<Array<SelectableValue<number>>>(
@@ -101,18 +108,67 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
               onChange={onMetricsTypeChange}
             ></Select>
           </InlineField>
-          <InlineField required label={resourceType === 'server' ? 'Servers' : 'Load Balancers'}>
-            <AsyncMultiSelect
-              key={resourceType} // Force reloading options when the key changes
-              loadOptions={multiselectLoadResources}
-              value={formResourceIDs}
-              onChange={onResourceNameOrIDsChange}
-              defaultOptions
-              isSearchable={false} // Currently not implemented in loadResources + API methods
-            ></AsyncMultiSelect>
+          <InlineField label={'Select By'}>
+            <RadioButtonGroup
+              value={selectBy}
+              onChange={(v: Query['selectBy']) => {
+                onChange({ ...query, selectBy: v });
+                onRunQuery();
+              }}
+              options={[
+                { label: 'Labels', value: 'label', icon: 'filter' },
+                { label: 'IDs', value: 'id', icon: 'gf-layout-simple' },
+              ]}
+            />
           </InlineField>
+
+          {selectBy === 'label' && (
+            <LabelSelectorInput
+              values={labelSelectors}
+              onChange={(v) => {
+                onChange({ ...query, labelSelectors: v });
+                onRunQuery();
+              }}
+            />
+          )}
+          {selectBy === 'id' && (
+            <InlineField required label={resourceType === 'server' ? 'Servers' : 'Load Balancers'}>
+              <AsyncMultiSelect
+                key={resourceType} // Force reloading options when the key changes
+                loadOptions={multiselectLoadResources}
+                value={formResourceIDs}
+                onChange={onResourceNameOrIDsChange}
+                defaultOptions
+                isSearchable={false} // Currently not implemented in loadResources + API methods
+              ></AsyncMultiSelect>
+            </InlineField>
+          )}
         </>
       )}
     </InlineFieldRow>
   );
 }
+
+interface LabelSelectorInputProps {
+  values: string[];
+  onChange: (values: string[]) => void;
+}
+const LabelSelectorInput = ({ values, onChange }: LabelSelectorInputProps) => (
+  <InlineField
+    label={'Label Selectors'}
+    tooltip={
+      <LinkButton
+        href="https://docs.hetzner.cloud/#label-selector"
+        size="sm"
+        variant="secondary"
+        icon="external-link-alt"
+        target="_blank"
+      >
+        Docs
+      </LinkButton>
+    }
+    interactive={true} // So user can click the link
+  >
+    <TagsInput tags={values} onChange={onChange} placeholder={'Selectors (enter key to add)'} />
+  </InlineField>
+);

@@ -3,10 +3,12 @@ package plugin
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/apricote/grafana-hcloud-datasource/pkg/logutil"
@@ -47,6 +49,13 @@ const (
 	MetricsTypeLoadBalancerBandwidth            MetricsType = "bandwidth"
 )
 
+type SelectBy string
+
+const (
+	SelectByLabel SelectBy = "label"
+	SelectByID    SelectBy = "id"
+)
+
 type Options struct {
 	Debug bool `json:"debug"`
 }
@@ -54,7 +63,10 @@ type Options struct {
 type QueryModel struct {
 	ResourceType ResourceType `json:"resourceType"`
 	MetricsType  MetricsType  `json:"metricsType"`
-	ResourceIDs  []int64      `json:"resourceIds"`
+
+	SelectBy       SelectBy `json:"selectBy"`
+	LabelSelectors []string `json:"labelSelectors"`
+	ResourceIDs    []int64  `json:"resourceIds"`
 }
 
 const (
@@ -259,17 +271,18 @@ func (d *Datasource) queryMetrics(ctx context.Context, query backend.DataQuery) 
 		return backend.ErrDataResponseWithSource(backend.StatusBadRequest, backend.ErrorSourcePlugin, fmt.Sprintf("json unmarshal: %v", err.Error()))
 	}
 
-	if len(qm.ResourceIDs) == 0 {
-		// TODO: Return metrics for all matching resources
-		return backend.ErrDataResponseWithSource(backend.StatusBadRequest, backend.ErrorSourcePlugin, "no resource IDs provided")
-	}
 	if qm.ResourceType != ResourceTypeServer {
 		return backend.ErrDataResponseWithSource(backend.StatusBadRequest, backend.ErrorSourcePlugin, fmt.Sprintf("unsupported resouce type: %v", qm.ResourceType))
 	}
 
+	resourceIDs, err := d.GetResourceIDs(ctx, qm)
+	if err != nil {
+		return backend.ErrDataResponseWithSource(backend.StatusBadRequest, backend.ErrorSourceDownstream, fmt.Sprintf("failed to resolve resources: %v", err.Error()))
+	}
+
 	step := stepSize(query.TimeRange, query.Interval, query.MaxDataPoints)
 
-	metrics, _ := d.queryRunnerServer.RequestMetrics(ctx, qm.ResourceIDs, RequestOpts{
+	metrics, _ := d.queryRunnerServer.RequestMetrics(ctx, resourceIDs, RequestOpts{
 		MetricsTypes: []MetricsType{qm.MetricsType},
 		TimeRange:    query.TimeRange,
 		Step:         step,
@@ -460,6 +473,40 @@ func (d *Datasource) loadBalancerAPIRequestFn(ctx context.Context, id int64, opt
 	})
 
 	return metrics, err
+}
+
+func (d *Datasource) GetResourceIDs(ctx context.Context, qm QueryModel) ([]int64, error) {
+	switch qm.SelectBy {
+	case SelectByLabel:
+
+		switch qm.ResourceType {
+		case ResourceTypeServer:
+			servers, err := d.client.Server.AllWithOpts(ctx, hcloud.ServerListOpts{
+				ListOpts: hcloud.ListOpts{
+					LabelSelector: strings.Join(qm.LabelSelectors, ", "),
+				},
+			})
+			if err != nil {
+				return nil, fmt.Errorf("failed to resolve resources by label: %w", err)
+			}
+
+			var resourceIDs []int64
+			for _, server := range servers {
+				resourceIDs = append(resourceIDs, server.ID)
+			}
+			return resourceIDs, nil
+
+		case ResourceTypeLoadBalancer:
+			return nil, errors.New("not implemented")
+		}
+	case SelectByID:
+		// TODO: Handle empty list
+		return qm.ResourceIDs, nil
+	default:
+		return nil, fmt.Errorf("unknown select by value: %q", qm.SelectBy)
+	}
+
+	return nil, fmt.Errorf("unknown error")
 }
 
 var (
