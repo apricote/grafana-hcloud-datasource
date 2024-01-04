@@ -15,15 +15,13 @@ export class DataSource extends DataSourceWithBackend<Query, DataSourceOptions> 
     const templateSrv = getTemplateSrv();
 
     if (query.labelSelectors) {
-      query.labelSelectors = query.labelSelectors.map((selector) =>
-        getTemplateSrv().replace(selector, scopedVars, 'json')
-      );
+      query.labelSelectors = query.labelSelectors.map((selector) => templateSrv.replace(selector, scopedVars, 'json'));
     }
 
     if (query.selectBy === 'name') {
       query.selectBy = 'id';
 
-      const replacedValue = getTemplateSrv().replace(query.resourceIDsVariable, scopedVars, 'json');
+      const replacedValue = templateSrv.replace(query.resourceIDsVariable, scopedVars, 'json');
 
       if (replacedValue !== '') {
         query.resourceIDs = (JSON.parse(replacedValue) as string[]).map((stringID) => parseInt(stringID, 10));
@@ -31,8 +29,6 @@ export class DataSource extends DataSourceWithBackend<Query, DataSourceOptions> 
         query.resourceIDs = [];
       }
     }
-
-    console.log('applyTemplateVariables', { query, scopedVars, vars: templateSrv.getVariables() });
 
     return query;
   }

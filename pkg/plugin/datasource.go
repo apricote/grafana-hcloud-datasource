@@ -67,9 +67,13 @@ type QueryModel struct {
 	SelectBy       SelectBy `json:"selectBy"`
 	LabelSelectors []string `json:"labelSelectors"`
 	ResourceIDs    []int64  `json:"resourceIds"`
+
+	LegendFormat string `json:"legendFormat"`
 }
 
 const (
+	AutoLegendFormat = "{{series_display_name}} {{name}}"
+
 	// DefaultBufferPeriod is the default buffer period for the QueryRunner.
 	DefaultBufferPeriod = 200 * time.Millisecond
 )
@@ -126,6 +130,8 @@ func NewDatasource(_ context.Context, settings backend.DataSourceInstanceSetting
 	d.queryRunnerServer = NewQueryRunner[hcloud.ServerMetrics](DefaultBufferPeriod, d.serverAPIRequestFn, filterServerMetrics)
 	d.queryRunnerLoadBalancer = NewQueryRunner[hcloud.LoadBalancerMetrics](DefaultBufferPeriod, d.loadBalancerAPIRequestFn, filterLoadBalancerMetrics)
 
+	d.nameCacheServer = NewNameCache(client)
+
 	return d, nil
 }
 
@@ -136,6 +142,8 @@ type Datasource struct {
 
 	queryRunnerServer       *QueryRunner[hcloud.ServerMetrics]
 	queryRunnerLoadBalancer *QueryRunner[hcloud.LoadBalancerMetrics]
+
+	nameCacheServer *NameCache
 }
 
 // Dispose here tells plugin SDK that plugin wants to clean up resources when a new instance
@@ -269,6 +277,7 @@ func (d *Datasource) queryResourceList(ctx context.Context, query backend.DataQu
 }
 
 func (d *Datasource) queryMetrics(ctx context.Context, query backend.DataQuery) backend.DataResponse {
+	ctxLogger := logger.FromContext(ctx)
 	var resp backend.DataResponse
 
 	var qm QueryModel
@@ -294,7 +303,13 @@ func (d *Datasource) queryMetrics(ctx context.Context, query backend.DataQuery) 
 		Step:         step,
 	})
 	for id, serverMetrics := range metrics {
-		resp.Frames = append(resp.Frames, serverMetricsToFrames(id, serverMetrics)...)
+		name, err := d.nameCacheServer.Get(ctx, id)
+		if err != nil {
+			ctxLogger.Warn("failed to get server name", "id", id, "error", err)
+			name = ""
+		}
+
+		resp.Frames = append(resp.Frames, serverMetricsToFrames(id, name, qm.LegendFormat, serverMetrics)...)
 	}
 
 	return resp
@@ -316,7 +331,7 @@ func stepSize(timeRange backend.TimeRange, interval time.Duration, maxDataPoints
 	return step
 }
 
-func serverMetricsToFrames(id int64, metrics *hcloud.ServerMetrics) []*data.Frame {
+func serverMetricsToFrames(id int64, serverName string, legendFormat string, metrics *hcloud.ServerMetrics) []*data.Frame {
 	frames := make([]*data.Frame, 0, len(metrics.TimeSeries))
 
 	// get all keys in map metrics.TimeSeries
@@ -337,9 +352,17 @@ func serverMetricsToFrames(id int64, metrics *hcloud.ServerMetrics) []*data.Fram
 			values = append(values, parsedValue)
 		}
 
-		valuesField := data.NewField(serverSeriesToDisplayName[name], data.Labels{"id": strconv.FormatInt(id, 10)}, values)
+		labels := data.Labels{
+			"id":                  strconv.FormatInt(id, 10),
+			"name":                serverName,
+			"series_name":         name,
+			"series_display_name": serverSeriesToDisplayName[name],
+		}
+
+		valuesField := data.NewField(name, labels, values)
 		valuesField.Config = &data.FieldConfig{
-			Unit: serverSeriesToUnit[name],
+			Unit:              serverSeriesToUnit[name],
+			DisplayNameFromDS: FormatLegend(legendFormat, labels),
 		}
 
 		frame.Fields = append(frame.Fields,
@@ -351,6 +374,22 @@ func serverMetricsToFrames(id int64, metrics *hcloud.ServerMetrics) []*data.Fram
 	}
 
 	return frames
+}
+
+func FormatLegend(legendFormat string, labels data.Labels) string {
+	legend := legendFormat
+
+	if legend == "" {
+		legend = AutoLegendFormat
+	}
+
+	for key, value := range labels {
+		// TODO Regex?
+		legend = strings.ReplaceAll(legend, fmt.Sprintf("{{%s}}", key), value)
+		legend = strings.ReplaceAll(legend, fmt.Sprintf("{{ %s }}", key), value)
+	}
+
+	return legend
 }
 
 // CheckHealth handles health checks sent from Grafana to the plugin.

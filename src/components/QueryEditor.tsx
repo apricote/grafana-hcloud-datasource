@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import {
   AsyncMultiSelect,
+  AutoSizeInput,
   InlineField,
   InlineFieldRow,
   Input,
@@ -57,6 +58,7 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
     labelSelectors = [],
     resourceIDs = [],
     resourceIDsVariable = '',
+    legendFormat = '',
   } = query;
 
   const multiselectLoadResources = useCallback(
@@ -87,93 +89,114 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
   const availableMetricTypes = query.resourceType === 'server' ? ServerMetricsTypes : LoadBalancerMetricsTypes;
 
   return (
-    <InlineFieldRow>
-      <InlineField label="Query Type">
-        <Select
-          options={[
-            { label: 'Metrics', value: 'metrics' },
-            { label: 'Resource List', value: 'resource-list' },
-          ]}
-          value={queryType}
-          onChange={onQueryTypeChange}
-        ></Select>
-      </InlineField>
-      <InlineField label="Resource Type">
-        <Select
-          options={[
-            { label: 'Server', value: 'server' },
-            { label: 'Load Balancer', value: 'load-balancer' },
-          ]}
-          value={resourceType}
-          onChange={onResourceTypeChange}
-        ></Select>
-      </InlineField>
-      {queryType === 'resource-list' && (
-        <LabelSelectorInput
-          values={labelSelectors}
-          onChange={(v) => {
-            onChange({ ...query, labelSelectors: v });
-            onRunQuery();
-          }}
-        />
-      )}
-      {queryType === 'metrics' && (
-        <>
-          <InlineField label="Metrics Type">
-            <Select
-              options={availableMetricTypes.map((type) => ({ label: type, value: type }))}
-              value={metricsType}
-              onChange={onMetricsTypeChange}
-            ></Select>
-          </InlineField>
-          <InlineField label={'Select By'}>
-            <RadioButtonGroup
-              value={selectBy}
-              onChange={(v: Query['selectBy']) => {
-                onChange({ ...query, selectBy: v });
-                onRunQuery();
-              }}
-              options={[
-                { label: 'Labels', value: 'label', icon: 'filter' },
-                { label: 'IDs', value: 'id', icon: 'gf-layout-simple' },
-                { label: 'Variable', value: 'name', icon: 'grafana' },
-              ]}
-            />
-          </InlineField>
+    <>
+      <InlineFieldRow>
+        <InlineField label="Query Type">
+          <Select
+            options={[
+              { label: 'Metrics', value: 'metrics' },
+              { label: 'Resource List', value: 'resource-list' },
+            ]}
+            value={queryType}
+            onChange={onQueryTypeChange}
+          ></Select>
+        </InlineField>
+        <InlineField label="Resource Type">
+          <Select
+            options={[
+              { label: 'Server', value: 'server' },
+              { label: 'Load Balancer', value: 'load-balancer' },
+            ]}
+            value={resourceType}
+            onChange={onResourceTypeChange}
+          ></Select>
+        </InlineField>
+        {queryType === 'resource-list' && (
+          <LabelSelectorInput
+            values={labelSelectors}
+            onChange={(v) => {
+              onChange({ ...query, labelSelectors: v });
+              onRunQuery();
+            }}
+          />
+        )}
+        {queryType === 'metrics' && (
+          <>
+            <InlineField label="Metrics Type">
+              <Select
+                options={availableMetricTypes.map((type) => ({ label: type, value: type }))}
+                value={metricsType}
+                onChange={onMetricsTypeChange}
+              ></Select>
+            </InlineField>
+            <InlineField label={'Select By'}>
+              <RadioButtonGroup
+                value={selectBy}
+                onChange={(v: Query['selectBy']) => {
+                  onChange({ ...query, selectBy: v });
+                  onRunQuery();
+                }}
+                options={[
+                  { label: 'Labels', value: 'label', icon: 'filter' },
+                  { label: 'IDs', value: 'id', icon: 'gf-layout-simple' },
+                  { label: 'Variable', value: 'name', icon: 'grafana' },
+                ]}
+              />
+            </InlineField>
 
-          {selectBy === 'label' && (
-            <LabelSelectorInput
-              values={labelSelectors}
-              onChange={(v) => {
-                onChange({ ...query, labelSelectors: v });
-                onRunQuery();
-              }}
-            />
-          )}
-          {selectBy === 'id' && (
-            <InlineField required label={resourceType === 'server' ? 'Servers' : 'Load Balancers'}>
-              <AsyncMultiSelect
-                key={resourceType} // Force reloading options when the key changes
-                loadOptions={multiselectLoadResources}
-                value={formResourceIDs}
-                onChange={onResourceNameOrIDsChange}
-                defaultOptions
-                isSearchable={false} // Currently not implemented in loadResources + API methods
-              ></AsyncMultiSelect>
-            </InlineField>
-          )}
-          {selectBy === 'name' && (
-            <InlineField label={'Variable Name'} tooltip={'Make sure to prefix with $'}>
-              <Input
-                value={resourceIDsVariable}
-                placeholder={'$variableName'}
-                onChange={(e) => onChange({ ...query, resourceIDsVariable: e.currentTarget.value })}
-              ></Input>
-            </InlineField>
-          )}
-        </>
-      )}
-    </InlineFieldRow>
+            {selectBy === 'label' && (
+              <LabelSelectorInput
+                values={labelSelectors}
+                onChange={(v) => {
+                  onChange({ ...query, labelSelectors: v });
+                  onRunQuery();
+                }}
+              />
+            )}
+            {selectBy === 'id' && (
+              <InlineField required label={resourceType === 'server' ? 'Servers' : 'Load Balancers'}>
+                <AsyncMultiSelect
+                  key={resourceType} // Force reloading options when the key changes
+                  loadOptions={multiselectLoadResources}
+                  value={formResourceIDs}
+                  onChange={onResourceNameOrIDsChange}
+                  defaultOptions
+                  isSearchable={false} // Currently not implemented in loadResources + API methods
+                ></AsyncMultiSelect>
+              </InlineField>
+            )}
+            {selectBy === 'name' && (
+              <InlineField label={'Variable Name'} tooltip={'Make sure to prefix with $'}>
+                <Input
+                  value={resourceIDsVariable}
+                  placeholder={'$variableName'}
+                  onChange={(e) => onChange({ ...query, resourceIDsVariable: e.currentTarget.value })}
+                ></Input>
+              </InlineField>
+            )}
+          </>
+        )}
+      </InlineFieldRow>
+
+      <InlineFieldRow>
+        <InlineField
+          label={'Legend'}
+          tooltip={
+            'Series name override or template. Ex. {{server_name}} will be replaced with label value for server_name'
+          }
+        >
+          <AutoSizeInput
+            value={legendFormat}
+            placeholder={'Auto'}
+            minLength={22}
+            onCommitChange={(e) => {
+              onChange({ ...query, legendFormat: e.currentTarget.value });
+              onRunQuery();
+            }}
+          ></AutoSizeInput>
+        </InlineField>
+      </InlineFieldRow>
+    </>
   );
 }
 

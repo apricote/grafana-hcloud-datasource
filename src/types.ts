@@ -18,6 +18,8 @@ export interface Query extends DataQuery {
   labelSelectors: string[];
   resourceIDs: number[];
   resourceIDsVariable: string;
+
+  legendFormat: string;
 }
 
 export const DEFAULT_QUERY: Partial<Query> = {
@@ -28,6 +30,7 @@ export const DEFAULT_QUERY: Partial<Query> = {
   labelSelectors: [],
   resourceIDs: [],
   resourceIDsVariable: '',
+  legendFormat: '',
 };
 
 export const DEFAULT_VARIABLE_QUERY: Partial<Query> = {
