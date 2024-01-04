@@ -4,6 +4,7 @@ services:
   grafana:
     container_name: 'apricote-hcloud-datasource'
     platform: 'linux/amd64'
+    user: 1000:1000
     build:
       context: ./.config
       args:
