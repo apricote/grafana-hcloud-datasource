@@ -6,20 +6,33 @@ import (
 	"sync"
 )
 
-func NewNameCache(client *hcloud.Client) *NameCache {
-	return &NameCache{
-		client: client,
-		cache:  map[int64]string{},
+type HCloudResource interface {
+	hcloud.Server | hcloud.LoadBalancer
+}
+
+type GetResourceFn[R HCloudResource] func(ctx context.Context, id int64) (*R, error)
+type IdentifierFn[R HCloudResource] func(resource *R) (int64, string)
+
+func NewNameCache[R HCloudResource](client *hcloud.Client, getFn GetResourceFn[R], identifierFn IdentifierFn[R]) *NameCache[R] {
+	return &NameCache[R]{
+		client:       client,
+		getFn:        getFn,
+		identifierFn: identifierFn,
+
+		cache: map[int64]string{},
 	}
 }
 
-type NameCache struct {
-	client *hcloud.Client
-	cache  map[int64]string
+type NameCache[R HCloudResource] struct {
+	client       *hcloud.Client
+	getFn        GetResourceFn[R]
+	identifierFn IdentifierFn[R]
+
+	cache map[int64]string
 	sync.Mutex
 }
 
-func (c *NameCache) Get(ctx context.Context, id int64) (string, error) {
+func (c *NameCache[R]) Get(ctx context.Context, id int64) (string, error) {
 	c.Lock()
 	defer c.Unlock()
 	name, ok := c.cache[id]
@@ -27,19 +40,21 @@ func (c *NameCache) Get(ctx context.Context, id int64) (string, error) {
 		return name, nil
 	}
 
-	server, _, err := c.client.Server.GetByID(ctx, id)
+	resource, err := c.getFn(ctx, id)
 	if err != nil {
 		return "", err
 	}
-	c.cache[id] = server.Name
-	return server.Name, nil
+	_, c.cache[id] = c.identifierFn(resource)
+
+	return c.cache[id], nil
 }
 
-func (c *NameCache) Insert(servers ...*hcloud.Server) {
+func (c *NameCache[R]) Insert(resources ...*R) {
 	c.Lock()
 	defer c.Unlock()
 
-	for _, server := range servers {
-		c.cache[server.ID] = server.Name
+	for _, resource := range resources {
+		id, name := c.identifierFn(resource)
+		c.cache[id] = name
 	}
 }

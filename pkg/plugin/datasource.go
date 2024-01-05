@@ -3,7 +3,6 @@ package plugin
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -88,10 +87,9 @@ var logger = log.DefaultLogger
 // backend.CheckHealthHandler interfaces. Plugin should not implement all these
 // interfaces - only those which are required for a particular task.
 var (
-	_ backend.QueryDataHandler      = (*Datasource)(nil)
-	_ backend.CallResourceHandler   = (*Datasource)(nil)
-	_ backend.CheckHealthHandler    = (*Datasource)(nil)
-	_ instancemgmt.InstanceDisposer = (*Datasource)(nil)
+	_ backend.QueryDataHandler    = (*Datasource)(nil)
+	_ backend.CallResourceHandler = (*Datasource)(nil)
+	_ backend.CheckHealthHandler  = (*Datasource)(nil)
 )
 
 // NewDatasource creates a new datasource instance.
@@ -132,7 +130,8 @@ func NewDatasource(_ context.Context, settings backend.DataSourceInstanceSetting
 	d.queryRunnerServer = NewQueryRunner[hcloud.ServerMetrics](DefaultBufferPeriod, d.serverAPIRequestFn, filterServerMetrics)
 	d.queryRunnerLoadBalancer = NewQueryRunner[hcloud.LoadBalancerMetrics](DefaultBufferPeriod, d.loadBalancerAPIRequestFn, filterLoadBalancerMetrics)
 
-	d.nameCacheServer = NewNameCache(client)
+	d.nameCacheServer = NewNameCache[hcloud.Server](client, d.getServerFn, func(server *hcloud.Server) (int64, string) { return server.ID, server.Name })
+	d.nameCacheLoadBalancer = NewNameCache[hcloud.LoadBalancer](client, d.getLoadBalancerFn, func(loadBalancer *hcloud.LoadBalancer) (int64, string) { return loadBalancer.ID, loadBalancer.Name })
 
 	return d, nil
 }
@@ -145,14 +144,8 @@ type Datasource struct {
 	queryRunnerServer       *QueryRunner[hcloud.ServerMetrics]
 	queryRunnerLoadBalancer *QueryRunner[hcloud.LoadBalancerMetrics]
 
-	nameCacheServer *NameCache
-}
-
-// Dispose here tells plugin SDK that plugin wants to clean up resources when a new instance
-// created. As soon as datasource settings change detected by SDK old datasource instance will
-// be disposed and a new one will be created using [NewDatasource] factory function.
-func (d *Datasource) Dispose() {
-	// Clean up datasource instance resources.
+	nameCacheServer       *NameCache[hcloud.Server]
+	nameCacheLoadBalancer *NameCache[hcloud.LoadBalancer]
 }
 
 // QueryData handles multiple queries and returns multiple responses.
@@ -288,10 +281,6 @@ func (d *Datasource) queryMetrics(ctx context.Context, query backend.DataQuery) 
 		return backend.ErrDataResponseWithSource(backend.StatusBadRequest, backend.ErrorSourcePlugin, fmt.Sprintf("json unmarshal: %v", err.Error()))
 	}
 
-	if qm.ResourceType != ResourceTypeServer {
-		return backend.ErrDataResponseWithSource(backend.StatusBadRequest, backend.ErrorSourcePlugin, fmt.Sprintf("unsupported resouce type: %v", qm.ResourceType))
-	}
-
 	resourceIDs, err := d.GetResourceIDs(ctx, qm)
 	if err != nil {
 		return backend.ErrDataResponseWithSource(backend.StatusBadRequest, backend.ErrorSourceDownstream, fmt.Sprintf("failed to resolve resources: %v", err.Error()))
@@ -299,19 +288,37 @@ func (d *Datasource) queryMetrics(ctx context.Context, query backend.DataQuery) 
 
 	step := stepSize(query.TimeRange, query.Interval, query.MaxDataPoints)
 
-	metrics, _ := d.queryRunnerServer.RequestMetrics(ctx, resourceIDs, RequestOpts{
-		MetricsTypes: []MetricsType{qm.MetricsType},
-		TimeRange:    query.TimeRange,
-		Step:         step,
-	})
-	for id, serverMetrics := range metrics {
-		name, err := d.nameCacheServer.Get(ctx, id)
-		if err != nil {
-			ctxLogger.Warn("failed to get server name", "id", id, "error", err)
-			name = ""
-		}
+	switch qm.ResourceType {
+	case ResourceTypeServer:
+		metrics, _ := d.queryRunnerServer.RequestMetrics(ctx, resourceIDs, RequestOpts{
+			MetricsTypes: []MetricsType{qm.MetricsType},
+			TimeRange:    query.TimeRange,
+			Step:         step,
+		})
+		for id, serverMetrics := range metrics {
+			name, err := d.nameCacheServer.Get(ctx, id)
+			if err != nil {
+				ctxLogger.Warn("failed to get server name", "id", id, "error", err)
+				name = ""
+			}
 
-		resp.Frames = append(resp.Frames, serverMetricsToFrames(id, name, qm.LegendFormat, serverMetrics)...)
+			resp.Frames = append(resp.Frames, serverMetricsToFrames(id, name, qm.LegendFormat, serverMetrics)...)
+		}
+	case ResourceTypeLoadBalancer:
+		metrics, _ := d.queryRunnerLoadBalancer.RequestMetrics(ctx, resourceIDs, RequestOpts{
+			MetricsTypes: []MetricsType{qm.MetricsType},
+			TimeRange:    query.TimeRange,
+			Step:         step,
+		})
+		for id, lbMetrics := range metrics {
+			name, err := d.nameCacheLoadBalancer.Get(ctx, id)
+			if err != nil {
+				ctxLogger.Warn("failed to get load balancer name", "id", id, "error", err)
+				name = ""
+			}
+
+			resp.Frames = append(resp.Frames, loadBalancerMetricsToFrames(id, name, qm.LegendFormat, lbMetrics)...)
+		}
 	}
 
 	return resp
@@ -364,6 +371,51 @@ func serverMetricsToFrames(id int64, serverName string, legendFormat string, met
 		valuesField := data.NewField(name, labels, values)
 		valuesField.Config = &data.FieldConfig{
 			Unit:              serverSeriesToUnit[name],
+			DisplayNameFromDS: FormatLegend(legendFormat, labels),
+		}
+
+		frame.Fields = append(frame.Fields,
+			data.NewField("time", nil, timestamps),
+			valuesField,
+		)
+
+		frames = append(frames, frame)
+	}
+
+	return frames
+}
+
+func loadBalancerMetricsToFrames(id int64, loadBalancerMetrics string, legendFormat string, metrics *hcloud.LoadBalancerMetrics) []*data.Frame {
+	frames := make([]*data.Frame, 0, len(metrics.TimeSeries))
+
+	// get all keys in map metrics.TimeSeries
+	for name, series := range metrics.TimeSeries {
+		frame := data.NewFrame("")
+
+		timestamps := make([]time.Time, 0, len(series))
+		values := make([]float64, 0, len(series))
+
+		for _, value := range series {
+			// convert float64 to time.Time
+			timestamps = append(timestamps, time.Unix(int64(value.Timestamp), 0))
+
+			parsedValue, err := strconv.ParseFloat(value.Value, 64)
+			if err != nil {
+				// TODO
+			}
+			values = append(values, parsedValue)
+		}
+
+		labels := data.Labels{
+			"id":                  strconv.FormatInt(id, 10),
+			"name":                loadBalancerMetrics,
+			"series_name":         name,
+			"series_display_name": loadBalancerSeriesToDisplayName[name],
+		}
+
+		valuesField := data.NewField(name, labels, values)
+		valuesField.Config = &data.FieldConfig{
+			Unit:              loadBalancerSeriesToUnit[name],
 			DisplayNameFromDS: FormatLegend(legendFormat, labels),
 		}
 
@@ -462,6 +514,8 @@ func (d *Datasource) getServers(ctx context.Context) ([]SelectableValue, error) 
 		return nil, err
 	}
 
+	d.nameCacheServer.Insert(servers...)
+
 	selectableValues := make([]SelectableValue, 0, len(servers))
 	for _, server := range servers {
 		selectableValues = append(selectableValues, SelectableValue{
@@ -478,6 +532,8 @@ func (d *Datasource) getLoadBalancers(ctx context.Context) ([]SelectableValue, e
 	if err != nil {
 		return nil, err
 	}
+
+	d.nameCacheLoadBalancer.Insert(loadBalancers...)
 
 	selectableValues := make([]SelectableValue, 0, len(loadBalancers))
 	for _, loadBalancer := range loadBalancers {
@@ -522,6 +578,16 @@ func (d *Datasource) loadBalancerAPIRequestFn(ctx context.Context, id int64, opt
 	return metrics, err
 }
 
+func (d *Datasource) getServerFn(ctx context.Context, id int64) (*hcloud.Server, error) {
+	srv, _, err := d.client.Server.GetByID(ctx, id)
+	return srv, err
+}
+
+func (d *Datasource) getLoadBalancerFn(ctx context.Context, id int64) (*hcloud.LoadBalancer, error) {
+	lb, _, err := d.client.LoadBalancer.GetByID(ctx, id)
+	return lb, err
+}
+
 func (d *Datasource) GetResourceIDs(ctx context.Context, qm QueryModel) ([]int64, error) {
 	switch qm.SelectBy {
 	case SelectByLabel:
@@ -544,7 +610,20 @@ func (d *Datasource) GetResourceIDs(ctx context.Context, qm QueryModel) ([]int64
 			return resourceIDs, nil
 
 		case ResourceTypeLoadBalancer:
-			return nil, errors.New("not implemented")
+			loadBalancers, err := d.client.LoadBalancer.AllWithOpts(ctx, hcloud.LoadBalancerListOpts{
+				ListOpts: hcloud.ListOpts{
+					LabelSelector: strings.Join(qm.LabelSelectors, ", "),
+				},
+			})
+			if err != nil {
+				return nil, fmt.Errorf("failed to resolve resources by label: %w", err)
+			}
+
+			var resourceIDs []int64
+			for _, loadBalancer := range loadBalancers {
+				resourceIDs = append(resourceIDs, loadBalancer.ID)
+			}
+			return resourceIDs, nil
 		}
 	case SelectByID:
 		// TODO: Handle empty list
@@ -615,11 +694,33 @@ var (
 	}
 
 	loadBalancerSeriesToDisplayName = map[string]string{
-		// TODO
+		// open_connections
+		"open_connections": "Open Connections",
+
+		// connections_per_second
+		"connections_per_second": "Connections Per Second",
+
+		// requests_per_second
+		"requests_per_second": "Requests Per Second",
+
+		// bandwidth
+		"bandwidth.in":  "Received",
+		"bandwidth.out": "Sent",
 	}
 
 	loadBalancerSeriesToUnit = map[string]string{
-		// TODO
+		// open_connections
+		"open_connections": "none",
+
+		// connections_per_second
+		"connections_per_second": "ops",
+
+		// requests_per_second
+		"requests_per_second": "reqps",
+
+		// bandwidth
+		"bandwidth.in":  "binBps",
+		"bandwidth.out": "binBps",
 	}
 
 	metricTypeToLoadBalancerMetricType = map[MetricsType]hcloud.LoadBalancerMetricType{
