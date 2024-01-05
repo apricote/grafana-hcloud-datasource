@@ -99,7 +99,8 @@ func (q *QueryRunner[M]) RequestMetrics(ctx context.Context, ids []int64, opts R
 			return nil, ctx.Err()
 		case resp := <-responseCh:
 			if resp.err != nil {
-				// TODO: return partial results? cancel outgoing requests?
+				// TODO: This could be improved by returning results for successful requests
+				//       and informing the user about the partial failure through Notices
 				return nil, resp.err
 			}
 

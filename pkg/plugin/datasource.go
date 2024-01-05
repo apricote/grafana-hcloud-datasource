@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -72,12 +73,23 @@ type QueryModel struct {
 	LegendFormat string `json:"legendFormat"`
 }
 
+type Label string
+
 const (
-	AutoLegendFormat = "{{series_display_name}} {{name}}"
+	LabelID                = "id"
+	LabelName              = "name"
+	LabelSeriesName        = "series_name"
+	LabelSeriesDisplayName = "series_display_name"
+)
+
+const (
+	AutoLegendFormat = "{{ series_display_name }} {{ name }}"
 
 	// DefaultBufferPeriod is the default buffer period for the QueryRunner.
 	DefaultBufferPeriod = 200 * time.Millisecond
 )
+
+var legendFormatRegexp = regexp.MustCompile(`\{\{\s*(.+?)\s*\}\}`)
 
 var logger = log.DefaultLogger
 
@@ -104,7 +116,7 @@ func NewDatasource(_ context.Context, settings backend.DataSourceInstanceSetting
 	clientOpts := []hcloud.ClientOption{
 		hcloud.WithToken(settings.DecryptedSecureJSONData["apiToken"]),
 		hcloud.WithApplication("apricote-hcloud-datasource", version),
-		// TODO: Should we update hcloud-go to rely on the registerer interface instead?
+		// TODO: Cleanup when https://github.com/hetznercloud/hcloud-go/pull/369 is merged & released
 		hcloud.WithInstrumentation(prometheus.DefaultRegisterer.(*prometheus.Registry)),
 	}
 
@@ -356,22 +368,25 @@ func serverMetricsToFrames(id int64, serverName string, legendFormat string, met
 
 			parsedValue, err := strconv.ParseFloat(value.Value, 64)
 			if err != nil {
-				// TODO
+				frame.AppendNotices(data.Notice{
+					Severity: data.NoticeSeverityWarning,
+					Text:     fmt.Sprintf("Failed to parse value %q at timestamp %f: %v", value.Value, value.Timestamp, err),
+				})
 			}
 			values = append(values, parsedValue)
 		}
 
 		labels := data.Labels{
-			"id":                  strconv.FormatInt(id, 10),
-			"name":                serverName,
-			"series_name":         name,
-			"series_display_name": serverSeriesToDisplayName[name],
+			LabelID:                strconv.FormatInt(id, 10),
+			LabelName:              serverName,
+			LabelSeriesName:        name,
+			LabelSeriesDisplayName: serverSeriesToDisplayName[name],
 		}
 
 		valuesField := data.NewField(name, labels, values)
 		valuesField.Config = &data.FieldConfig{
 			Unit:              serverSeriesToUnit[name],
-			DisplayNameFromDS: FormatLegend(legendFormat, labels),
+			DisplayNameFromDS: getDisplayName(legendFormat, labels),
 		}
 
 		frame.Fields = append(frame.Fields,
@@ -401,22 +416,25 @@ func loadBalancerMetricsToFrames(id int64, loadBalancerMetrics string, legendFor
 
 			parsedValue, err := strconv.ParseFloat(value.Value, 64)
 			if err != nil {
-				// TODO
+				frame.AppendNotices(data.Notice{
+					Severity: data.NoticeSeverityWarning,
+					Text:     fmt.Sprintf("Failed to parse value %q at timestamp %f: %v", value.Value, value.Timestamp, err),
+				})
 			}
 			values = append(values, parsedValue)
 		}
 
 		labels := data.Labels{
-			"id":                  strconv.FormatInt(id, 10),
-			"name":                loadBalancerMetrics,
-			"series_name":         name,
-			"series_display_name": loadBalancerSeriesToDisplayName[name],
+			LabelID:                strconv.FormatInt(id, 10),
+			LabelName:              loadBalancerMetrics,
+			LabelSeriesName:        name,
+			LabelSeriesDisplayName: loadBalancerSeriesToDisplayName[name],
 		}
 
 		valuesField := data.NewField(name, labels, values)
 		valuesField.Config = &data.FieldConfig{
 			Unit:              loadBalancerSeriesToUnit[name],
-			DisplayNameFromDS: FormatLegend(legendFormat, labels),
+			DisplayNameFromDS: getDisplayName(legendFormat, labels),
 		}
 
 		frame.Fields = append(frame.Fields,
@@ -430,20 +448,21 @@ func loadBalancerMetricsToFrames(id int64, loadBalancerMetrics string, legendFor
 	return frames
 }
 
-func FormatLegend(legendFormat string, labels data.Labels) string {
-	legend := legendFormat
-
-	if legend == "" {
-		legend = AutoLegendFormat
+// getDisplayName was inspired by github.com/grafana/grafana/pkg/tsdb/prometheus/querydata.getName()
+func getDisplayName(legendFormat string, labels data.Labels) string {
+	if legendFormat == "" {
+		legendFormat = AutoLegendFormat
 	}
 
-	for key, value := range labels {
-		// TODO Regex?
-		legend = strings.ReplaceAll(legend, fmt.Sprintf("{{%s}}", key), value)
-		legend = strings.ReplaceAll(legend, fmt.Sprintf("{{ %s }}", key), value)
-	}
-
-	return legend
+	return legendFormatRegexp.ReplaceAllStringFunc(legendFormat, func(in string) string {
+		labelName := strings.Replace(in, "{{", "", 1)
+		labelName = strings.Replace(labelName, "}}", "", 1)
+		labelName = strings.TrimSpace(labelName)
+		if val, exists := labels[labelName]; exists {
+			return val
+		}
+		return ""
+	})
 }
 
 // CheckHealth handles health checks sent from Grafana to the plugin.
@@ -474,6 +493,13 @@ func (d *Datasource) CallResource(ctx context.Context, req *backend.CallResource
 
 	var returnData any
 	var err error
+
+	if req.Method != http.MethodGet {
+		ctxLogger.Warn("unsupported method", "method", req.Method, "path", req.Path)
+		return sender.Send(&backend.CallResourceResponse{
+			Status: http.StatusMethodNotAllowed,
+		})
+	}
 
 	switch req.Path {
 	case "/servers":
@@ -589,50 +615,61 @@ func (d *Datasource) getLoadBalancerFn(ctx context.Context, id int64) (*hcloud.L
 }
 
 func (d *Datasource) GetResourceIDs(ctx context.Context, qm QueryModel) ([]int64, error) {
+	// If we have an explicit list of IDs use those
+	if qm.SelectBy == SelectByID && len(qm.ResourceIDs) > 0 {
+		return qm.ResourceIDs, nil
+	}
+
+	// If we have a label selector or an empty list of IDs we need to resolve the resources
+	listOpts := hcloud.ListOpts{}
+
 	switch qm.SelectBy {
 	case SelectByLabel:
-
-		switch qm.ResourceType {
-		case ResourceTypeServer:
-			servers, err := d.client.Server.AllWithOpts(ctx, hcloud.ServerListOpts{
-				ListOpts: hcloud.ListOpts{
-					LabelSelector: strings.Join(qm.LabelSelectors, ", "),
-				},
-			})
-			if err != nil {
-				return nil, fmt.Errorf("failed to resolve resources by label: %w", err)
-			}
-
-			var resourceIDs []int64
-			for _, server := range servers {
-				resourceIDs = append(resourceIDs, server.ID)
-			}
-			return resourceIDs, nil
-
-		case ResourceTypeLoadBalancer:
-			loadBalancers, err := d.client.LoadBalancer.AllWithOpts(ctx, hcloud.LoadBalancerListOpts{
-				ListOpts: hcloud.ListOpts{
-					LabelSelector: strings.Join(qm.LabelSelectors, ", "),
-				},
-			})
-			if err != nil {
-				return nil, fmt.Errorf("failed to resolve resources by label: %w", err)
-			}
-
-			var resourceIDs []int64
-			for _, loadBalancer := range loadBalancers {
-				resourceIDs = append(resourceIDs, loadBalancer.ID)
-			}
-			return resourceIDs, nil
-		}
+		listOpts.LabelSelector = strings.Join(qm.LabelSelectors, ", ")
 	case SelectByID:
-		// TODO: Handle empty list
-		return qm.ResourceIDs, nil
+	// Setting no label selector will return all resources
 	default:
 		return nil, fmt.Errorf("unknown select by value: %q", qm.SelectBy)
 	}
 
-	return nil, fmt.Errorf("unknown error")
+	switch qm.ResourceType {
+	case ResourceTypeServer:
+		servers, err := d.client.Server.AllWithOpts(ctx, hcloud.ServerListOpts{
+			ListOpts: hcloud.ListOpts{
+				LabelSelector: strings.Join(qm.LabelSelectors, ", "),
+			},
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve resources by label: %w", err)
+		}
+
+		d.nameCacheServer.Insert(servers...)
+
+		var resourceIDs []int64
+		for _, server := range servers {
+			resourceIDs = append(resourceIDs, server.ID)
+		}
+		return resourceIDs, nil
+	case ResourceTypeLoadBalancer:
+		loadBalancers, err := d.client.LoadBalancer.AllWithOpts(ctx, hcloud.LoadBalancerListOpts{
+			ListOpts: hcloud.ListOpts{
+				LabelSelector: strings.Join(qm.LabelSelectors, ", "),
+			},
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve resources by label: %w", err)
+		}
+
+		d.nameCacheLoadBalancer.Insert(loadBalancers...)
+
+		var resourceIDs []int64
+		for _, loadBalancer := range loadBalancers {
+			resourceIDs = append(resourceIDs, loadBalancer.ID)
+		}
+		return resourceIDs, nil
+	default:
+		return nil, fmt.Errorf("unknown resource type: %q", qm.ResourceType)
+	}
 }
 
 var (

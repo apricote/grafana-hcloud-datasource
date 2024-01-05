@@ -55,7 +55,7 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
       }
       case ResourceType.LoadBalancer: {
         if (!isValidOption(LoadBalancerMetricsTypes, metricsType)) {
-          metricsType = LoadBalancerMetricsTypes.RequestsPerSecond;
+          metricsType = LoadBalancerMetricsTypes.Bandwidth;
         }
       }
     }
@@ -203,7 +203,11 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
         <InlineField
           label={'Legend'}
           tooltip={
-            'Series name override or template. Ex. {{server_name}} will be replaced with label value for server_name'
+            <>
+              Series name override or template. Ex. <code>{'{{ name }}'}</code> will be replaced with label value for
+              name. Defaults to <code>{'{{series_display_name }} {{ name }}'}</code>. Available labels are:{' '}
+              <code>id</code>, <code>name</code>, <code>series_name</code>, <code>series_display_name</code>
+            </>
           }
         >
           <AutoSizeInput
