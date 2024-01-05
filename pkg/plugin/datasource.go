@@ -44,7 +44,7 @@ const (
 	MetricsTypeServerNetworkBandwidth MetricsType = "network-bandwidth"
 	MetricsTypeServerNetworkPPS       MetricsType = "network-pps"
 
-	MetricsTypeLoadBalancerOpenConnections      MetricsType = "connections"
+	MetricsTypeLoadBalancerOpenConnections      MetricsType = "open-connections"
 	MetricsTypeLoadBalancerConnectionsPerSecond MetricsType = "connections-per-second"
 	MetricsTypeLoadBalancerRequestsPerSecond    MetricsType = "requests-per-second"
 	MetricsTypeLoadBalancerBandwidth            MetricsType = "bandwidth"
