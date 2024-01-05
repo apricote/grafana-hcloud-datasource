@@ -1,7 +1,7 @@
 import { DataSourceInstanceSettings, CoreApp, SelectableValue, ScopedVars } from '@grafana/data';
 import { DataSourceWithBackend, getTemplateSrv } from '@grafana/runtime';
 
-import { Query, DataSourceOptions, DEFAULT_QUERY } from './types';
+import { Query, DataSourceOptions, DEFAULT_QUERY, SelectBy } from './types';
 import { VariableSupport } from './variables';
 
 export class DataSource extends DataSourceWithBackend<Query, DataSourceOptions> {
@@ -18,8 +18,8 @@ export class DataSource extends DataSourceWithBackend<Query, DataSourceOptions> 
       query.labelSelectors = query.labelSelectors.map((selector) => templateSrv.replace(selector, scopedVars, 'json'));
     }
 
-    if (query.selectBy === 'name') {
-      query.selectBy = 'id';
+    if (query.selectBy === SelectBy.Name) {
+      query.selectBy = SelectBy.ID;
 
       const replacedValue = templateSrv.replace(query.resourceIDsVariable, scopedVars, 'json');
 
@@ -46,7 +46,7 @@ export class DataSource extends DataSourceWithBackend<Query, DataSourceOptions> 
   }
 
   filterQuery(query: Query): boolean {
-    if (query.selectBy === 'name' && query.resourceIDsVariable === '') {
+    if (query.selectBy === SelectBy.Name && query.resourceIDsVariable === '') {
       return false;
     }
 

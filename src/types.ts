@@ -1,20 +1,43 @@
 import { DataSourceJsonData } from '@grafana/data';
 import { DataQuery } from '@grafana/schema';
 
-export const ServerMetricsTypes = ['cpu', 'disk', 'network'] as const;
-export const LoadBalancerMetricsTypes = [
-  'open-connections',
-  'connections-per-second',
-  'requests-per-second',
-  'bandwidth',
-] as const;
+export enum QueryType {
+  ResourceList = 'resource-list',
+  Metrics = 'metrics',
+}
+
+export enum ResourceType {
+  Server = 'server',
+  LoadBalancer = 'load-balancer',
+}
+
+export enum ServerMetricsTypes {
+  CPU = 'cpu',
+  DiskBandwidth = 'disk-bandwidth',
+  DiskIOPS = 'disk-iops',
+  NetworkBandwidth = 'network-bandwidth',
+  NetworkPPS = 'network-pps',
+}
+
+export enum LoadBalancerMetricsTypes {
+  OpenConnections = 'open-connections',
+  ConnectionsPerSecond = 'connections-per-second',
+  RequestsPerSecond = 'requests-per-second',
+  Bandwidth = 'bandwidth',
+}
+
+export enum SelectBy {
+  Label = 'label',
+  ID = 'id',
+  Name = 'name',
+}
 
 export interface Query extends DataQuery {
-  queryType: 'resource-list' | 'metrics';
-  resourceType: 'server' | 'load-balancer';
-  metricsType: (typeof ServerMetricsTypes)[number] | (typeof LoadBalancerMetricsTypes)[number];
+  queryType: QueryType;
+  resourceType: ResourceType;
+  metricsType: ServerMetricsTypes | LoadBalancerMetricsTypes;
 
-  selectBy: 'label' | 'id' | 'name';
+  selectBy: SelectBy;
   labelSelectors: string[];
   resourceIDs: number[];
   resourceIDsVariable: string;
@@ -23,10 +46,10 @@ export interface Query extends DataQuery {
 }
 
 export const DEFAULT_QUERY: Partial<Query> = {
-  queryType: 'metrics',
-  resourceType: 'server',
-  metricsType: 'cpu',
-  selectBy: 'label',
+  queryType: QueryType.Metrics,
+  resourceType: ResourceType.Server,
+  metricsType: ServerMetricsTypes.CPU,
+  selectBy: SelectBy.Label,
   labelSelectors: [],
   resourceIDs: [],
   resourceIDsVariable: '',
@@ -34,8 +57,8 @@ export const DEFAULT_QUERY: Partial<Query> = {
 };
 
 export const DEFAULT_VARIABLE_QUERY: Partial<Query> = {
-  queryType: 'resource-list',
-  resourceType: 'server',
+  queryType: QueryType.ResourceList,
+  resourceType: ResourceType.Server,
 
   labelSelectors: [],
   resourceIDs: [],

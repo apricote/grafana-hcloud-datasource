@@ -12,9 +12,33 @@ import {
 } from '@grafana/ui';
 import { QueryEditorProps, SelectableValue } from '@grafana/data';
 import { DataSource } from '../datasource';
-import { DataSourceOptions, LoadBalancerMetricsTypes, Query, ServerMetricsTypes } from '../types';
+import {
+  DataSourceOptions,
+  LoadBalancerMetricsTypes,
+  Query,
+  QueryType,
+  ResourceType,
+  SelectBy,
+  ServerMetricsTypes,
+} from '../types';
+import { isValidOption } from '../img/enum';
 
 type Props = QueryEditorProps<DataSource, Query, DataSourceOptions>;
+
+const selectOptionsServerMetricsTypes = [
+  { value: ServerMetricsTypes.CPU, label: 'CPU' },
+  { value: ServerMetricsTypes.DiskBandwidth, label: 'Disk Bandwidth' },
+  { value: ServerMetricsTypes.DiskIOPS, label: 'Disk IOPS' },
+  { value: ServerMetricsTypes.NetworkBandwidth, label: 'Network Bandwidth' },
+  { value: ServerMetricsTypes.NetworkPPS, label: 'Network PPS' },
+];
+
+const selectOptionsLoadBalancerMetricsTypes = [
+  { value: LoadBalancerMetricsTypes.OpenConnections, label: 'Open Connections' },
+  { value: LoadBalancerMetricsTypes.ConnectionsPerSecond, label: 'Connections Per Second' },
+  { value: LoadBalancerMetricsTypes.RequestsPerSecond, label: 'Requests Per Second' },
+  { value: LoadBalancerMetricsTypes.Bandwidth, label: 'Bandwidth' },
+];
 
 export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) {
   const onResourceTypeChange = (event: SelectableValue<Query['resourceType']>) => {
@@ -23,15 +47,15 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
 
     // Make sure that the metrics type is valid for the new resource type
     switch (resourceType) {
-      case 'server': {
-        if (!ServerMetricsTypes.includes(metricsType as any)) {
-          metricsType = 'cpu';
+      case ResourceType.Server: {
+        if (!isValidOption(ServerMetricsTypes, metricsType)) {
+          metricsType = ServerMetricsTypes.CPU;
         }
         break;
       }
-      case 'load-balancer': {
-        if (!LoadBalancerMetricsTypes.includes(metricsType as any)) {
-          metricsType = 'open-connections';
+      case ResourceType.LoadBalancer: {
+        if (!isValidOption(LoadBalancerMetricsTypes, metricsType)) {
+          metricsType = LoadBalancerMetricsTypes.RequestsPerSecond;
         }
       }
     }
@@ -64,10 +88,10 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
   const multiselectLoadResources = useCallback(
     async (_: string) => {
       switch (resourceType) {
-        case 'server': {
+        case ResourceType.Server: {
           return datasource.getServers();
         }
-        case 'load-balancer': {
+        case ResourceType.LoadBalancer: {
           return datasource.getLoadBalancers();
         }
       }
@@ -86,7 +110,8 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
     setFormResourceIDs(newValues);
   };
 
-  const availableMetricTypes = query.resourceType === 'server' ? ServerMetricsTypes : LoadBalancerMetricsTypes;
+  const availableMetricTypes =
+    query.resourceType === 'server' ? selectOptionsServerMetricsTypes : selectOptionsLoadBalancerMetricsTypes;
 
   return (
     <>
@@ -94,8 +119,8 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
         <InlineField label="Query Type">
           <Select
             options={[
-              { label: 'Metrics', value: 'metrics' },
-              { label: 'Resource List', value: 'resource-list' },
+              { label: 'Metrics', value: QueryType.Metrics },
+              { label: 'Resource List', value: QueryType.ResourceList },
             ]}
             value={queryType}
             onChange={onQueryTypeChange}
@@ -104,14 +129,14 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
         <InlineField label="Resource Type">
           <Select
             options={[
-              { label: 'Server', value: 'server' },
-              { label: 'Load Balancer', value: 'load-balancer' },
+              { label: 'Server', value: ResourceType.Server },
+              { label: 'Load Balancer', value: ResourceType.LoadBalancer },
             ]}
             value={resourceType}
             onChange={onResourceTypeChange}
           ></Select>
         </InlineField>
-        {queryType === 'resource-list' && (
+        {queryType === QueryType.ResourceList && (
           <LabelSelectorInput
             values={labelSelectors}
             onChange={(v) => {
@@ -120,14 +145,10 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
             }}
           />
         )}
-        {queryType === 'metrics' && (
+        {queryType === QueryType.Metrics && (
           <>
             <InlineField label="Metrics Type">
-              <Select
-                options={availableMetricTypes.map((type) => ({ label: type, value: type }))}
-                value={metricsType}
-                onChange={onMetricsTypeChange}
-              ></Select>
+              <Select options={availableMetricTypes} value={metricsType} onChange={onMetricsTypeChange}></Select>
             </InlineField>
             <InlineField label={'Select By'}>
               <RadioButtonGroup
@@ -137,14 +158,14 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
                   onRunQuery();
                 }}
                 options={[
-                  { label: 'Labels', value: 'label', icon: 'filter' },
-                  { label: 'IDs', value: 'id', icon: 'gf-layout-simple' },
-                  { label: 'Variable', value: 'name', icon: 'grafana' },
+                  { label: 'Labels', value: SelectBy.Label, icon: 'filter' },
+                  { label: 'IDs', value: SelectBy.ID, icon: 'gf-layout-simple' },
+                  { label: 'Variable', value: SelectBy.Name, icon: 'grafana' },
                 ]}
               />
             </InlineField>
 
-            {selectBy === 'label' && (
+            {selectBy === SelectBy.Label && (
               <LabelSelectorInput
                 values={labelSelectors}
                 onChange={(v) => {
@@ -153,8 +174,8 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
                 }}
               />
             )}
-            {selectBy === 'id' && (
-              <InlineField required label={resourceType === 'server' ? 'Servers' : 'Load Balancers'}>
+            {selectBy === SelectBy.ID && (
+              <InlineField required label={resourceType === ResourceType.Server ? 'Servers' : 'Load Balancers'}>
                 <AsyncMultiSelect
                   key={resourceType} // Force reloading options when the key changes
                   loadOptions={multiselectLoadResources}
@@ -165,7 +186,7 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
                 ></AsyncMultiSelect>
               </InlineField>
             )}
-            {selectBy === 'name' && (
+            {selectBy === SelectBy.Name && (
               <InlineField label={'Variable Name'} tooltip={'Make sure to prefix with $'}>
                 <Input
                   value={resourceIDsVariable}
