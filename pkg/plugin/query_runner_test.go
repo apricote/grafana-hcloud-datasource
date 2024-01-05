@@ -69,13 +69,13 @@ func Test_uniqueRequests(t *testing.T) {
 					Step:         1,
 				},
 				{
-					MetricsTypes: []MetricsType{MetricsTypeServerNetwork},
+					MetricsTypes: []MetricsType{MetricsTypeServerDiskBandwidth},
 					TimeRange:    backend.TimeRange{From: date2020, To: date2021},
 					Step:         1,
 				},
 			}, want: []RequestOpts{
 				{
-					MetricsTypes: []MetricsType{MetricsTypeServerCPU, MetricsTypeServerNetwork},
+					MetricsTypes: []MetricsType{MetricsTypeServerCPU, MetricsTypeServerDiskBandwidth},
 					TimeRange:    backend.TimeRange{From: date2020, To: date2021},
 					Step:         1,
 				},

@@ -39,9 +39,11 @@ const (
 type MetricsType string
 
 const (
-	MetricsTypeServerCPU     MetricsType = "cpu"
-	MetricsTypeServerDisk    MetricsType = "disk"
-	MetricsTypeServerNetwork MetricsType = "network"
+	MetricsTypeServerCPU              MetricsType = "cpu"
+	MetricsTypeServerDiskBandwidth    MetricsType = "disk-bandwidth"
+	MetricsTypeServerDiskIOPS         MetricsType = "disk-iops"
+	MetricsTypeServerNetworkBandwidth MetricsType = "network-bandwidth"
+	MetricsTypeServerNetworkPPS       MetricsType = "network-pps"
 
 	MetricsTypeLoadBalancerOpenConnections      MetricsType = "connections"
 	MetricsTypeLoadBalancerConnectionsPerSecond MetricsType = "connections-per-second"
@@ -556,9 +558,11 @@ func (d *Datasource) GetResourceIDs(ctx context.Context, qm QueryModel) ([]int64
 
 var (
 	serverMetricsTypeSeries = map[MetricsType][]string{
-		MetricsTypeServerCPU:     {"cpu"},
-		MetricsTypeServerDisk:    {"disk.0.iops.read", "disk.0.iops.write", "disk.0.bandwidth.read", "disk.0.bandwidth.write"},
-		MetricsTypeServerNetwork: {"network.0.pps.in", "network.0.pps.out", "network.0.bandwidth.in", "network.0.bandwidth.out"},
+		MetricsTypeServerCPU:              {"cpu"},
+		MetricsTypeServerDiskBandwidth:    {"disk.0.bandwidth.read", "disk.0.bandwidth.write"},
+		MetricsTypeServerDiskIOPS:         {"disk.0.iops.read", "disk.0.iops.write"},
+		MetricsTypeServerNetworkBandwidth: {"network.0.bandwidth.in", "network.0.bandwidth.out"},
+		MetricsTypeServerNetworkPPS:       {"network.0.pps.in", "network.0.pps.out"},
 	}
 
 	serverSeriesToDisplayName = map[string]string{
@@ -566,16 +570,16 @@ var (
 		"cpu": "Usage",
 
 		// disk
-		"disk.0.iops.read":       "IOPS Read",
-		"disk.0.iops.write":      "IOPS Write",
-		"disk.0.bandwidth.read":  "Bandwidth Read",
-		"disk.0.bandwidth.write": "Bandwidth Write",
+		"disk.0.iops.read":       "Read",
+		"disk.0.iops.write":      "Write",
+		"disk.0.bandwidth.read":  "Read",
+		"disk.0.bandwidth.write": "Write",
 
 		//network
-		"network.0.pps.in":        "PPS Received",
-		"network.0.pps.out":       "PPS Sent",
-		"network.0.bandwidth.in":  "Bandwidth Received",
-		"network.0.bandwidth.out": "Bandwidth Sent",
+		"network.0.pps.in":        "Received",
+		"network.0.pps.out":       "Sent",
+		"network.0.bandwidth.in":  "Received",
+		"network.0.bandwidth.out": "Sent",
 	}
 
 	serverSeriesToUnit = map[string]string{
@@ -585,20 +589,22 @@ var (
 		// disk
 		"disk.0.iops.read":       "iops",
 		"disk.0.iops.write":      "iops",
-		"disk.0.bandwidth.read":  "bytes/sec(IEC)",
-		"disk.0.bandwidth.write": "bytes/sec(IEC)",
+		"disk.0.bandwidth.read":  "binBps",
+		"disk.0.bandwidth.write": "binBps",
 
 		//network
-		"network.0.pps.in":        "packets/sec",
-		"network.0.pps.out":       "packets/sec",
-		"network.0.bandwidth.in":  "bytes/sec(IEC)",
-		"network.0.bandwidth.out": "bytes/sec(IEC)",
+		"network.0.pps.in":        "pps",
+		"network.0.pps.out":       "pps",
+		"network.0.bandwidth.in":  "binBps",
+		"network.0.bandwidth.out": "binBps",
 	}
 
 	metricTypeToServerMetricType = map[MetricsType]hcloud.ServerMetricType{
-		MetricsTypeServerCPU:     hcloud.ServerMetricCPU,
-		MetricsTypeServerDisk:    hcloud.ServerMetricDisk,
-		MetricsTypeServerNetwork: hcloud.ServerMetricNetwork,
+		MetricsTypeServerCPU:              hcloud.ServerMetricCPU,
+		MetricsTypeServerDiskBandwidth:    hcloud.ServerMetricDisk,
+		MetricsTypeServerDiskIOPS:         hcloud.ServerMetricDisk,
+		MetricsTypeServerNetworkBandwidth: hcloud.ServerMetricNetwork,
+		MetricsTypeServerNetworkPPS:       hcloud.ServerMetricNetwork,
 	}
 
 	loadBalancerMetricsTypeSeries = map[MetricsType][]string{

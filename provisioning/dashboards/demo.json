@@ -23,6 +23,19 @@
   "liveNow": false,
   "panels": [
     {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 6,
+      "panels": [],
+      "title": "Servers",
+      "type": "row"
+    },
+    {
       "datasource": {
         "type": "apricote-hcloud-datasource",
         "uid": "${datasource}"
@@ -83,7 +96,7 @@
         "h": 9,
         "w": 24,
         "x": 0,
-        "y": 0
+        "y": 1
       },
       "id": 1,
       "options": {
@@ -172,13 +185,26 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "disk.0.bandwidth.write"
+            },
+            "properties": [
+              {
+                "id": "custom.transform",
+                "value": "negative-Y"
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
-        "h": 9,
-        "w": 24,
+        "h": 8,
+        "w": 12,
         "x": 0,
-        "y": 9
+        "y": 10
       },
       "id": 2,
       "options": {
@@ -199,7 +225,7 @@
             "type": "apricote-hcloud-datasource",
             "uid": "${datasource}"
           },
-          "metricsType": "disk",
+          "metricsType": "disk-bandwidth",
           "queryType": "metrics",
           "refId": "A",
           "resourceIDs": [],
@@ -208,7 +234,7 @@
           "selectBy": "name"
         }
       ],
-      "title": "Disk",
+      "title": "Disk Bandwidth",
       "type": "timeseries"
     },
     {
@@ -266,11 +292,131 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "disk.0.iops.write"
+            },
+            "properties": [
+              {
+                "id": "custom.transform",
+                "value": "negative-Y"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 10
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "apricote-hcloud-datasource",
+            "uid": "${datasource}"
+          },
+          "metricsType": "disk-iops",
+          "queryType": "metrics",
+          "refId": "A",
+          "resourceIDs": [],
+          "resourceIDsVariable": "$servers",
+          "resourceType": "server",
+          "selectBy": "name"
+        }
+      ],
+      "title": "Disk Bandwidth",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "apricote-hcloud-datasource",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "network.0.bandwidth.out"
+            },
+            "properties": [
+              {
+                "id": "custom.transform",
+                "value": "negative-Y"
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 9,
-        "w": 24,
+        "w": 12,
         "x": 0,
         "y": 18
       },
@@ -293,7 +439,7 @@
             "type": "apricote-hcloud-datasource",
             "uid": "${datasource}"
           },
-          "metricsType": "network",
+          "metricsType": "network-bandwidth",
           "queryType": "metrics",
           "refId": "A",
           "resourceIDs": [],
@@ -302,7 +448,114 @@
           "selectBy": "name"
         }
       ],
-      "title": "Network",
+      "title": "Network Bandwidth",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "apricote-hcloud-datasource",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "network.0.pps.out"
+            },
+            "properties": [
+              {
+                "id": "custom.transform",
+                "value": "negative-Y"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 18
+      },
+      "id": 5,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "apricote-hcloud-datasource",
+            "uid": "${datasource}"
+          },
+          "metricsType": "network-pps",
+          "queryType": "metrics",
+          "refId": "A",
+          "resourceIDs": [],
+          "resourceIDsVariable": "$servers",
+          "resourceType": "server",
+          "selectBy": "name"
+        }
+      ],
+      "title": "Network PPS",
       "type": "timeseries"
     }
   ],
@@ -314,7 +567,9 @@
     "list": [
       {
         "current": {
-          "selected": false
+          "selected": false,
+          "text": "home-cloud",
+          "value": "home-cloud"
         },
         "hide": 0,
         "includeAll": false,
@@ -417,6 +672,6 @@
   "timezone": "",
   "title": "Hetzner Cloud Datasource Demo",
   "uid": "d351478f-c755-4390-b0ee-f07b9a9081e1",
-  "version": 15,
+  "version": 17,
   "weekStart": ""
 }
