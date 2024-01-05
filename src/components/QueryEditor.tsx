@@ -41,6 +41,17 @@ const selectOptionsLoadBalancerMetricsTypes = [
 ];
 
 export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) {
+  const {
+    queryType,
+    resourceType,
+    metricsType,
+    selectBy,
+    labelSelectors = [],
+    resourceIDs = [],
+    resourceIDsVariable = '',
+    legendFormat = '',
+  } = query;
+
   const onResourceTypeChange = (event: SelectableValue<Query['resourceType']>) => {
     const resourceType = event.value!;
     let metricsType = query.metricsType;
@@ -64,51 +75,43 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
     onRunQuery();
   };
 
-  const onQueryTypeChange = (event: SelectableValue<Query['queryType']>) => {
-    onChange({ ...query, queryType: event.value! });
-    onRunQuery();
-  };
-
-  const onMetricsTypeChange = (event: SelectableValue<Query['metricsType']>) => {
-    onChange({ ...query, metricsType: event.value! });
-    onRunQuery();
-  };
-
-  const {
-    queryType,
-    resourceType,
-    metricsType,
-    selectBy,
-    labelSelectors = [],
-    resourceIDs = [],
-    resourceIDsVariable = '',
-    legendFormat = '',
-  } = query;
-
-  const multiselectLoadResources = useCallback(
-    async (_: string) => {
-      switch (resourceType) {
-        case ResourceType.Server: {
-          return datasource.getServers();
-        }
-        case ResourceType.LoadBalancer: {
-          return datasource.getLoadBalancers();
-        }
-      }
-    },
-    [datasource, resourceType]
-  );
-
-  // TODO Properly restore the selected resources after the options are loaded,
-  // currently we always show empty form even if the query has IDs set
   const [formResourceIDs, setFormResourceIDs] = useState<Array<SelectableValue<number>>>(
     resourceIDs.map((id) => ({ value: id }))
   );
+
   const onResourceNameOrIDsChange = (newValues: Array<SelectableValue<number>>) => {
     onChange({ ...query, resourceIDs: newValues.map((value) => value.value!) });
     onRunQuery();
     setFormResourceIDs(newValues);
   };
+
+  const multiselectLoadResources = useCallback(
+    async (_: string) => {
+      let resources: Array<SelectableValue<number>> = [];
+      switch (resourceType) {
+        case ResourceType.Server: {
+          resources = await datasource.getServers();
+          break;
+        }
+        case ResourceType.LoadBalancer: {
+          resources = await datasource.getLoadBalancers();
+          break;
+        }
+      }
+
+      // In case the QueryEditor was loaded with some resources preselected, this only restored their IDs and the fields look weird.
+      // We need to update the formResourceIDs to match the resources we just loaded.
+
+      const hydratedValues = formResourceIDs
+        .map(({ value }) => resources.find((r) => r.value === value))
+        .filter((r) => r !== undefined);
+
+      setFormResourceIDs(hydratedValues as Array<SelectableValue<number>>);
+
+      return resources;
+    },
+    [datasource, formResourceIDs, resourceType]
+  );
 
   const availableMetricTypes =
     query.resourceType === 'server' ? selectOptionsServerMetricsTypes : selectOptionsLoadBalancerMetricsTypes;
@@ -116,16 +119,6 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
   return (
     <>
       <InlineFieldRow>
-        <InlineField label="Query Type">
-          <Select
-            options={[
-              { label: 'Metrics', value: QueryType.Metrics },
-              { label: 'Resource List', value: QueryType.ResourceList },
-            ]}
-            value={queryType}
-            onChange={onQueryTypeChange}
-          ></Select>
-        </InlineField>
         <InlineField label="Resource Type">
           <Select
             options={[
@@ -148,7 +141,14 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
         {queryType === QueryType.Metrics && (
           <>
             <InlineField label="Metrics Type">
-              <Select options={availableMetricTypes} value={metricsType} onChange={onMetricsTypeChange}></Select>
+              <Select
+                options={availableMetricTypes}
+                value={metricsType}
+                onChange={(event: SelectableValue<Query['metricsType']>) => {
+                  onChange({ ...query, metricsType: event.value! });
+                  onRunQuery();
+                }}
+              ></Select>
             </InlineField>
             <InlineField label={'Select By'}>
               <RadioButtonGroup
@@ -175,7 +175,7 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
               />
             )}
             {selectBy === SelectBy.ID && (
-              <InlineField required label={resourceType === ResourceType.Server ? 'Servers' : 'Load Balancers'}>
+              <InlineField label={resourceType === ResourceType.Server ? 'Servers' : 'Load Balancers'}>
                 <AsyncMultiSelect
                   key={resourceType} // Force reloading options when the key changes
                   loadOptions={multiselectLoadResources}
@@ -200,6 +200,19 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
       </InlineFieldRow>
 
       <InlineFieldRow>
+        <InlineField label="Query Type">
+          <RadioButtonGroup
+            options={[
+              { label: 'Metrics', value: QueryType.Metrics },
+              { label: 'Resource List', value: QueryType.ResourceList },
+            ]}
+            value={queryType}
+            onChange={(queryType: QueryType) => {
+              onChange({ ...query, queryType });
+              onRunQuery();
+            }}
+          ></RadioButtonGroup>
+        </InlineField>
         <InlineField
           label={'Legend'}
           tooltip={
