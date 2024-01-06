@@ -27,7 +27,16 @@
         "url": "https://www.hetzner.com/cloud"
       }
     ],
-    "screenshots": [],
+    "screenshots": [
+      {
+        "name": "Dashboard",
+        "path": "img/screenshot-dashboard.png"
+      },
+      {
+        "name": "Query Editor",
+        "path": "img/screenshot-query.png"
+      }
+    ],
     "version": "%VERSION%",
     "updated": "%TODAY%"
   },
