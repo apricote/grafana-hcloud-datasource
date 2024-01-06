@@ -488,6 +488,7 @@ func (d *Datasource) CheckHealth(ctx context.Context, _ *backend.CheckHealthRequ
 	}, nil
 }
 
+// CallResource handles additional API calls. These are used to fill the resource dropdowns in the query editor.
 func (d *Datasource) CallResource(ctx context.Context, req *backend.CallResourceRequest, sender backend.CallResourceResponseSender) error {
 	ctxLogger := logger.FromContext(ctx)
 

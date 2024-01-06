@@ -23,6 +23,8 @@ func NewNameCache[R HCloudResource](client *hcloud.Client, getFn GetResourceFn[R
 	}
 }
 
+// NameCache is a cache for resource names. It is used to avoid sending unnecessary API requests. Right now there is no
+// expiry for entries, so if names are changed this is not reflected in queries.
 type NameCache[R HCloudResource] struct {
 	client       *hcloud.Client
 	getFn        GetResourceFn[R]
@@ -32,6 +34,7 @@ type NameCache[R HCloudResource] struct {
 	sync.Mutex
 }
 
+// Get will retrieve the name from the cache or query the API in case it is unknown.
 func (c *NameCache[R]) Get(ctx context.Context, id int64) (string, error) {
 	c.Lock()
 	defer c.Unlock()
@@ -49,6 +52,8 @@ func (c *NameCache[R]) Get(ctx context.Context, id int64) (string, error) {
 	return c.cache[id], nil
 }
 
+// Insert will insert the given resources into the cache, updating any existing entries.
+// This should be called whenever API requests are made, to keep the cache reasonable full & up to date.
 func (c *NameCache[R]) Insert(resources ...*R) {
 	c.Lock()
 	defer c.Unlock()
