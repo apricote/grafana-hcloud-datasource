@@ -1,10 +1,11 @@
 import { InlineField, RadioButtonGroup } from '@grafana/ui';
 import React from 'react';
 import { QueryType } from '../../types';
+import type { SelectableValue } from '@grafana/data';
 
-const queryTypes = [
-  { label: 'Metrics', value: QueryType.Metrics },
-  { label: 'Resource List', value: QueryType.ResourceList },
+const queryTypes: Array<SelectableValue<QueryType>> = [
+  { label: 'Metrics', value: QueryType.Metrics, icon: 'chart-line' },
+  { label: 'Resource List', value: QueryType.ResourceList, icon: 'table' },
 ];
 
 interface QueryTypeFieldProps {

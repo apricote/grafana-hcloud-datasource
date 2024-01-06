@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
 import { InlineFieldRow } from '@grafana/ui';
-import { QueryEditorProps } from '@grafana/data';
+import type { QueryEditorProps } from '@grafana/data';
 
 import { DataSource } from '../../datasource';
 import {
@@ -72,6 +72,15 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
     <>
       <InlineFieldRow>
         <ResourceTypeField resourceType={resourceType} onChange={onResourceTypeChange} />
+        {queryType === QueryType.Metrics && (
+          <MetricsTypeField
+            metricsType={metricsType}
+            resourceType={resourceType}
+            onChange={(metricsType) => onChangeRunQuery({ ...query, metricsType })}
+          />
+        )}
+      </InlineFieldRow>
+      <InlineFieldRow>
         {queryType === QueryType.ResourceList && (
           <LabelSelectorField
             values={labelSelectors}
@@ -80,25 +89,19 @@ export function QueryEditor({ query, onChange, onRunQuery, datasource }: Props) 
         )}
         {queryType === QueryType.Metrics && (
           <>
-            <MetricsTypeField
-              metricsType={metricsType}
-              resourceType={resourceType}
-              onChange={(metricsType) => onChangeRunQuery({ ...query, metricsType })}
-            />
             <SelectByField selectBy={selectBy} onChange={(selectBy) => onChangeRunQuery({ ...query, selectBy })} />
-
-            {selectBy === SelectBy.Label && (
-              <LabelSelectorField
-                values={labelSelectors}
-                onChange={(labelSelectors) => onChangeRunQuery({ ...query, labelSelectors })}
-              />
-            )}
             {selectBy === SelectBy.ID && (
               <ResourceSelectorField
                 datasource={datasource}
                 ids={resourceIDs}
                 resourceType={resourceType}
                 onChange={(resourceIDs) => onChangeRunQuery({ ...query, resourceIDs })}
+              />
+            )}
+            {selectBy === SelectBy.Label && (
+              <LabelSelectorField
+                values={labelSelectors}
+                onChange={(labelSelectors) => onChangeRunQuery({ ...query, labelSelectors })}
               />
             )}
             {selectBy === SelectBy.Name && (

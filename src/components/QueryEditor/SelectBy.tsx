@@ -8,8 +8,8 @@ interface SelectByFieldProps {
 }
 
 const selectByOptions = [
-  { label: 'Labels', value: SelectBy.Label, icon: 'filter' },
   { label: 'IDs', value: SelectBy.ID, icon: 'gf-layout-simple' },
+  { label: 'Labels', value: SelectBy.Label, icon: 'filter' },
   { label: 'Variable', value: SelectBy.Name, icon: 'grafana' },
 ];
 

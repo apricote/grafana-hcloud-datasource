@@ -51,7 +51,7 @@ export const DEFAULT_QUERY: Partial<Query> = {
   queryType: QueryType.Metrics,
   resourceType: ResourceType.Server,
   metricsType: ServerMetricsTypes.CPU,
-  selectBy: SelectBy.Label,
+  selectBy: SelectBy.ID,
   labelSelectors: [],
   resourceIDs: [],
   resourceIDsVariable: '',

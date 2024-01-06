@@ -7,8 +7,15 @@
   "metrics": true,
   "backend": true,
   "executable": "gpx_hcloud",
+  "includes": [
+    {
+      "type":"dashboard",
+      "name": "Demo",
+      "path": "dashboards/demo.json"
+    }
+  ],
   "info": {
-    "description": "Get metrics from Hetzner Cloud servers and load balancers directly in Grafana",
+    "description": "Display metrics for your Hetzner Cloud Servers and Load Balancers.",
     "author": {
       "name": "Julian Tölle <julian.toelle97@gmail.com>"
     },
@@ -23,8 +30,12 @@
         "url": "https://github.com/apricote/grafana-hcloud-datasource"
       },
       {
-        "name": "Official Hetzner Cloud Website",
+        "name": "Hetzner Cloud",
         "url": "https://www.hetzner.com/cloud"
+      },
+      {
+        "name": "License",
+        "url": "https://github.com/apricote/grafana-hcloud-datasource/blob/main/LICENSE"
       }
     ],
     "screenshots": [
