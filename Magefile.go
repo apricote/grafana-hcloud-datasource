@@ -22,5 +22,5 @@ func DevFrontend() {
 }
 
 func DevDockerCompose() {
-	sh.RunV("docker", "compose", "up")
+	sh.RunV("docker", "compose", "up", "--build")
 }

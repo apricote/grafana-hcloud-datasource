@@ -8,20 +8,30 @@
   "backend": true,
   "executable": "gpx_hcloud",
   "info": {
-    "description": "Get metrics from hetzner cloud servers and load balancers directly in grafana",
+    "description": "Get metrics from Hetzner Cloud servers and load balancers directly in Grafana",
     "author": {
       "name": "Julian Tölle <julian.toelle97@gmail.com>"
     },
-    "keywords": ["datasource"],
+    "keywords": ["datasource", "hcloud", "Hetzner Cloud", "Hetzner"],
     "logos": {
       "small": "img/logo-small.png",
       "large": "img/logo-large.png"
     },
-    "links": [],
+    "links": [
+      {
+        "name": "GitHub",
+        "url": "https://github.com/apricote/grafana-hcloud-datasource"
+      },
+      {
+        "name": "Official Hetzner Cloud Website",
+        "url": "https://www.hetzner.com/cloud"
+      }
+    ],
     "screenshots": [],
     "version": "%VERSION%",
     "updated": "%TODAY%"
   },
+  "category": "cloud",
   "dependencies": {
     "grafanaDependency": ">=10.0.3",
     "plugins": []

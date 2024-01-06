@@ -26,6 +26,8 @@ export enum LoadBalancerMetricsTypes {
   Bandwidth = 'bandwidth',
 }
 
+export type MetricsType = ServerMetricsTypes | LoadBalancerMetricsTypes;
+
 export enum SelectBy {
   Label = 'label',
   ID = 'id',
@@ -35,7 +37,7 @@ export enum SelectBy {
 export interface Query extends DataQuery {
   queryType: QueryType;
   resourceType: ResourceType;
-  metricsType: ServerMetricsTypes | LoadBalancerMetricsTypes;
+  metricsType: MetricsType;
 
   selectBy: SelectBy;
   labelSelectors: string[];
