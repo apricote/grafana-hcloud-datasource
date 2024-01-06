@@ -1,5 +1,7 @@
 # Grafana data source plugin for Hetzner Cloud
 
+> [!WARNING]  
+> This project is still under development and not yet available for use.
 
 ![Example Query](./src/img/screenshot-query.png)
 
