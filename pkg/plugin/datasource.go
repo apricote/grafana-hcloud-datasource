@@ -116,8 +116,7 @@ func NewDatasource(_ context.Context, settings backend.DataSourceInstanceSetting
 	clientOpts := []hcloud.ClientOption{
 		hcloud.WithToken(settings.DecryptedSecureJSONData["apiToken"]),
 		hcloud.WithApplication("apricote-hcloud-datasource", version),
-		// TODO: Cleanup when https://github.com/hetznercloud/hcloud-go/pull/369 is merged & released
-		hcloud.WithInstrumentation(prometheus.DefaultRegisterer.(*prometheus.Registry)),
+		hcloud.WithInstrumentation(prometheus.DefaultRegisterer),
 	}
 
 	options := Options{}
