@@ -40,7 +40,7 @@ To define which servers/load balancers you want to see in the graph, you can cho
 
 - **IDs**: A drop-down list of all available servers/load balancers in the project. You can select multiple IDs.
 - **Labels**: You can set [label selectors](https://docs.hetzner.cloud/#label-selector) to filter the resources. This is useful if you have a dynamic list of resources.
-- **Variable**: This option exists to support using Dashboard-wide variables to select the resources. Should include the `$` prefix of the variable, e.g. `$servers`. See [Using Variables](#using-variables) for more details.
+- **Variable**: This option exists to support using Dashboard-wide variables to select the resources. Should include the `$` prefix of the variable, e.g. `$servers`. See _Using Variables_ for more details.
 
 #### Legend Format
 
@@ -61,7 +61,7 @@ If not specified, the default format is: `{{ series_display_name }} {{ name }}`.
 
 By default, queries return metrics. It is also possible to select the Query Type **List Resources**. This will return a table of the matching resources with some interesting fields, like the server type and the labels.
 
-The returned field `var` is necessary for [Using Variables](#using-variables).
+The returned field `var` is necessary for _Using Variables_.
 
 #### Using Variables
 
