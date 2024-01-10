@@ -38,11 +38,11 @@ export class DataSource extends DataSourceWithBackend<Query, DataSourceOptions> 
   }
 
   async getServers(): Promise<Array<SelectableValue<number>>> {
-    return this.getResource('/servers');
+    return this.getResource('servers');
   }
 
   async getLoadBalancers(): Promise<Array<SelectableValue<number>>> {
-    return this.getResource('/load-balancers');
+    return this.getResource('load-balancers');
   }
 
   filterQuery(query: Query): boolean {
