@@ -6,7 +6,7 @@ toolchain go1.21.5
 
 require (
 	github.com/grafana/grafana-plugin-sdk-go v0.198.0
-	github.com/hetznercloud/hcloud-go/v2 v2.5.1
+	github.com/hetznercloud/hcloud-go/v2 v2.6.0
 	github.com/magefile/mage v1.15.0
 	github.com/prometheus/client_golang v1.18.0
 	github.com/sourcegraph/conc v0.3.0
@@ -82,7 +82,7 @@ require (
 	go.opentelemetry.io/proto/otlp v1.0.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/mod v0.14.0 // indirect
-	golang.org/x/net v0.19.0 // indirect
+	golang.org/x/net v0.20.0 // indirect
 	golang.org/x/sys v0.16.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/tools v0.16.1 // indirect
