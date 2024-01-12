@@ -502,10 +502,14 @@ func (d *Datasource) CallResource(ctx context.Context, req *backend.CallResource
 	}
 
 	switch req.Path {
-	case "/servers":
+	case "servers":
 		returnData, err = d.getServers(ctx)
-	case "/load-balancers":
+	case "load-balancers":
 		returnData, err = d.getLoadBalancers(ctx)
+	default:
+		return sender.Send(&backend.CallResourceResponse{
+			Status: http.StatusNotFound,
+		})
 	}
 
 	if err != nil {
