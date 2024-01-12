@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -87,6 +88,8 @@ const (
 
 	// DefaultBufferPeriod is the default buffer period for the QueryRunner.
 	DefaultBufferPeriod = 200 * time.Millisecond
+
+	InvalidAPITokenErrorMessage = "API Token was not configured or does not work, a valid API Token is required for the data source to access the Hetzner Cloud API"
 )
 
 var legendFormatRegexp = regexp.MustCompile(`\{\{\s*(.+?)\s*\}\}`)
@@ -105,16 +108,24 @@ var (
 )
 
 // NewDatasource creates a new datasource instance.
-func NewDatasource(_ context.Context, settings backend.DataSourceInstanceSettings) (instancemgmt.Instance, error) {
+func NewDatasource(ctx context.Context, settings backend.DataSourceInstanceSettings) (instancemgmt.Instance, error) {
+	ctxLogger := logger.FromContext(ctx)
+
 	version := "unknown"
 	if buildInfo, err := build.GetBuildInfo(); err != nil {
-		logger.Warn("get build info failed", "error", err)
+		ctxLogger.Warn("get build info failed", "error", err)
 	} else {
 		version = buildInfo.Version
 	}
 
+	token := settings.DecryptedSecureJSONData["apiToken"]
+	if token == "" {
+		ctxLogger.Warn(InvalidAPITokenErrorMessage)
+		// Returning an error here will only show "An error occurred within the plugin" in frontend
+	}
+
 	clientOpts := []hcloud.ClientOption{
-		hcloud.WithToken(settings.DecryptedSecureJSONData["apiToken"]),
+		hcloud.WithToken(token),
 		hcloud.WithApplication("apricote-hcloud-datasource", version),
 		hcloud.WithInstrumentation(prometheus.DefaultRegisterer),
 	}
@@ -126,7 +137,7 @@ func NewDatasource(_ context.Context, settings backend.DataSourceInstanceSetting
 	}
 
 	if options.Debug {
-		logger.Info("Debug logging enabled")
+		ctxLogger.Info("Debug logging enabled")
 		clientOpts = append(clientOpts, hcloud.WithDebugWriter(logutil.NewDebugWriter(logger)))
 	}
 
@@ -204,6 +215,7 @@ func (d *Datasource) queryResourceList(ctx context.Context, query backend.DataQu
 	case ResourceTypeServer:
 		servers, err := d.client.Server.AllWithOpts(ctx, hcloud.ServerListOpts{ListOpts: hcloud.ListOpts{LabelSelector: strings.Join(queryData.LabelSelectors, ", ")}})
 		if err != nil {
+			err = NicerErrorMessages(err)
 			return backend.ErrDataResponseWithSource(backend.StatusInternal, backend.ErrorSourceDownstream, fmt.Sprintf("error getting servers: %v", err.Error()))
 		}
 
@@ -243,6 +255,7 @@ func (d *Datasource) queryResourceList(ctx context.Context, query backend.DataQu
 	case ResourceTypeLoadBalancer:
 		loadBalancers, err := d.client.LoadBalancer.AllWithOpts(ctx, hcloud.LoadBalancerListOpts{ListOpts: hcloud.ListOpts{LabelSelector: strings.Join(queryData.LabelSelectors, ", ")}})
 		if err != nil {
+			err = NicerErrorMessages(err)
 			return backend.ErrDataResponseWithSource(backend.StatusInternal, backend.ErrorSourceDownstream, fmt.Sprintf("error getting load balancers: %v", err.Error()))
 		}
 
@@ -294,6 +307,7 @@ func (d *Datasource) queryMetrics(ctx context.Context, query backend.DataQuery) 
 
 	resourceIDs, err := d.GetResourceIDs(ctx, qm)
 	if err != nil {
+		err = NicerErrorMessages(err)
 		return backend.ErrDataResponseWithSource(backend.StatusBadRequest, backend.ErrorSourceDownstream, fmt.Sprintf("failed to resolve resources: %v", err.Error()))
 	}
 
@@ -301,11 +315,18 @@ func (d *Datasource) queryMetrics(ctx context.Context, query backend.DataQuery) 
 
 	switch qm.ResourceType {
 	case ResourceTypeServer:
-		metrics, _ := d.queryRunnerServer.RequestMetrics(ctx, resourceIDs, RequestOpts{
+		metrics, err := d.queryRunnerServer.RequestMetrics(ctx, resourceIDs, RequestOpts{
 			MetricsTypes: []MetricsType{qm.MetricsType},
 			TimeRange:    query.TimeRange,
 			Step:         step,
 		})
+		if err != nil {
+			resp.Error = NicerErrorMessages(err)
+			resp.ErrorSource = backend.ErrorSourceDownstream
+
+			return resp
+		}
+
 		for id, serverMetrics := range metrics {
 			name, err := d.nameCacheServer.Get(ctx, id)
 			if err != nil {
@@ -316,11 +337,17 @@ func (d *Datasource) queryMetrics(ctx context.Context, query backend.DataQuery) 
 			resp.Frames = append(resp.Frames, serverMetricsToFrames(id, name, qm.LegendFormat, serverMetrics)...)
 		}
 	case ResourceTypeLoadBalancer:
-		metrics, _ := d.queryRunnerLoadBalancer.RequestMetrics(ctx, resourceIDs, RequestOpts{
+		metrics, err := d.queryRunnerLoadBalancer.RequestMetrics(ctx, resourceIDs, RequestOpts{
 			MetricsTypes: []MetricsType{qm.MetricsType},
 			TimeRange:    query.TimeRange,
 			Step:         step,
 		})
+		if err != nil {
+			resp.Error = NicerErrorMessages(err)
+			resp.ErrorSource = backend.ErrorSourceDownstream
+			return resp
+		}
+
 		for id, lbMetrics := range metrics {
 			name, err := d.nameCacheLoadBalancer.Get(ctx, id)
 			if err != nil {
@@ -474,7 +501,7 @@ func (d *Datasource) CheckHealth(ctx context.Context, _ *backend.CheckHealthRequ
 		if hcloud.IsError(err, hcloud.ErrorCodeUnauthorized) {
 			return &backend.CheckHealthResult{
 				Status:  backend.HealthStatusError,
-				Message: "Invalid Token",
+				Message: InvalidAPITokenErrorMessage,
 			}, nil
 		}
 
@@ -489,13 +516,13 @@ func (d *Datasource) CheckHealth(ctx context.Context, _ *backend.CheckHealthRequ
 
 // CallResource handles additional API calls. These are used to fill the resource dropdowns in the query editor.
 func (d *Datasource) CallResource(ctx context.Context, req *backend.CallResourceRequest, sender backend.CallResourceResponseSender) error {
-	ctxLogger := logger.FromContext(ctx)
+	ctxLogger := logger.FromContext(ctx).With("path", req.Path, "method", req.Method)
 
 	var returnData any
 	var err error
 
 	if req.Method != http.MethodGet {
-		ctxLogger.Warn("unsupported method", "method", req.Method, "path", req.Path)
+		ctxLogger.Warn("unsupported method")
 		return sender.Send(&backend.CallResourceResponse{
 			Status: http.StatusMethodNotAllowed,
 		})
@@ -513,7 +540,14 @@ func (d *Datasource) CallResource(ctx context.Context, req *backend.CallResource
 	}
 
 	if err != nil {
-		ctxLogger.Warn("failed to respond to resource call", "path", req.Path, "error", err)
+		if hcloud.IsError(err, hcloud.ErrorCodeUnauthorized) {
+			ctxLogger.Warn(InvalidAPITokenErrorMessage, "error", err)
+			return sender.Send(&backend.CallResourceResponse{
+				Status: http.StatusUnauthorized,
+			})
+		}
+
+		ctxLogger.Warn("failed to respond to resource call", "error", err)
 		return sender.Send(&backend.CallResourceResponse{
 			Status: http.StatusInternalServerError,
 		})
@@ -521,7 +555,7 @@ func (d *Datasource) CallResource(ctx context.Context, req *backend.CallResource
 
 	body, err := json.Marshal(returnData)
 	if err != nil {
-		ctxLogger.Warn("failed to encode json body in resource call", "path", req.Path, "error", err)
+		ctxLogger.Warn("failed to encode json body in resource call", "error", err)
 		return sender.Send(&backend.CallResourceResponse{
 			Status: http.StatusInternalServerError,
 		})
@@ -644,7 +678,7 @@ func (d *Datasource) GetResourceIDs(ctx context.Context, qm QueryModel) ([]int64
 			},
 		})
 		if err != nil {
-			return nil, fmt.Errorf("failed to resolve resources by label: %w", err)
+			return nil, fmt.Errorf("server lookup by label: %w", err)
 		}
 
 		d.nameCacheServer.Insert(servers...)
@@ -661,7 +695,7 @@ func (d *Datasource) GetResourceIDs(ctx context.Context, qm QueryModel) ([]int64
 			},
 		})
 		if err != nil {
-			return nil, fmt.Errorf("failed to resolve resources by label: %w", err)
+			return nil, fmt.Errorf("load balancer lookup by label: %w", err)
 		}
 
 		d.nameCacheLoadBalancer.Insert(loadBalancers...)
@@ -798,4 +832,22 @@ func filterLoadBalancerMetrics(metrics *hcloud.LoadBalancerMetrics, metricsTypes
 	}
 
 	return &metricsCopy
+}
+
+// NicerErrorMessages replaces some error messages from the hetzner cloud API with more user-friendly messages.
+func NicerErrorMessages(err error) error {
+	// [hcloud.IsError] does not properly handle wrapped error right now,
+	// can be removed once https://github.com/hetznercloud/hcloud-go/pull/374 is released.
+	var hcloudErr hcloud.Error
+	if !errors.As(err, &hcloudErr) {
+		// Only handle [hcloud.Error]
+		return err
+	}
+
+	switch {
+	case hcloud.IsError(hcloudErr, hcloud.ErrorCodeUnauthorized):
+		return fmt.Errorf("%s: %w", InvalidAPITokenErrorMessage, err)
+	default:
+		return err
+	}
 }
