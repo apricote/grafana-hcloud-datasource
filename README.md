@@ -1,13 +1,10 @@
 # Hetzner Cloud data source for Grafana
 
-> [!WARNING]  
-> This project is still under development and not yet available for use.
-
 ![Example Query](https://github.com/apricote/grafana-hcloud-datasource/raw/main/src/img/screenshot-query.png)
 
 ![Version in Marketplace](https://img.shields.io/badge/dynamic/json?logo=grafana&query=$.version&url=https://grafana.com/api/plugins/apricote-hcloud-datasource&label=Marketplace&prefix=v&color=F47A20)
-![Downloads in Marketplace](https://img.shields.io/badge/dynamic/json?logo=grafana&query=$.downloads&url=https://grafana.com/api/plugins/apricote-hcloud-datasource&label=Downloads&prefix=v&color=F47A20)
-![Grafana Dependency](https://img.shields.io/badge/dynamic/json?logo=grafana&query=$.grafanaDependency&url=https://grafana.com/api/plugins/apricote-hcloud-datasource&label=Grafana&prefix=v&color=F47A20)
+![Downloads in Marketplace](https://img.shields.io/badge/dynamic/json?logo=grafana&query=$.downloads&url=https://grafana.com/api/plugins/apricote-hcloud-datasource&label=Downloads&color=F47A20)
+![Grafana Dependency](https://img.shields.io/badge/dynamic/json?logo=grafana&query=$.grafanaDependency&url=https://grafana.com/api/plugins/apricote-hcloud-datasource&label=Grafana&color=F47A20)
 
 ## Introduction
 
