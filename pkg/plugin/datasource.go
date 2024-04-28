@@ -3,7 +3,6 @@ package plugin
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -880,16 +879,8 @@ func filterLoadBalancerMetrics(metrics *hcloud.LoadBalancerMetrics, metricsTypes
 
 // NicerErrorMessages replaces some error messages from the hetzner cloud API with more user-friendly messages.
 func NicerErrorMessages(err error) error {
-	// [hcloud.IsError] does not properly handle wrapped error right now,
-	// can be removed once https://github.com/hetznercloud/hcloud-go/pull/374 is released.
-	var hcloudErr hcloud.Error
-	if !errors.As(err, &hcloudErr) {
-		// Only handle [hcloud.Error]
-		return err
-	}
-
 	switch {
-	case hcloud.IsError(hcloudErr, hcloud.ErrorCodeUnauthorized):
+	case hcloud.IsError(err, hcloud.ErrorCodeUnauthorized):
 		return fmt.Errorf("%s: %w", InvalidAPITokenErrorMessage, err)
 	default:
 		return err
