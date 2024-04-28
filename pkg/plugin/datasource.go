@@ -8,6 +8,7 @@ import (
 	"math"
 	"net/http"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -359,6 +360,9 @@ func (d *Datasource) queryMetrics(ctx context.Context, query backend.DataQuery) 
 		}
 	}
 
+	// Keep colors in graph the same
+	sortFrames(resp.Frames)
+
 	return resp
 }
 
@@ -417,6 +421,8 @@ func serverMetricsToFrames(id int64, serverName string, legendFormat string, met
 
 		frame.Fields = append(frame.Fields,
 			data.NewField("time", nil, timestamps),
+			// valuesField needs to be last, if this is changed,
+			// you also need to modify [sortFrames] for the new ordering.
 			valuesField,
 		)
 
@@ -465,6 +471,8 @@ func loadBalancerMetricsToFrames(id int64, loadBalancerMetrics string, legendFor
 
 		frame.Fields = append(frame.Fields,
 			data.NewField("time", nil, timestamps),
+			// valuesField needs to be last, if this is changed,
+			// you also need to modify [sortFrames] for the new ordering.
 			valuesField,
 		)
 
@@ -488,6 +496,42 @@ func getDisplayName(legendFormat string, labels data.Labels) string {
 			return val
 		}
 		return ""
+	})
+}
+
+// sortFrames sorts frames by their [LabelID] and [LabelSeriesName]. This helps with the coloring in the
+// Time Series panel, as they depend on the order of the results.
+func sortFrames(frames []*data.Frame) {
+
+	slices.SortFunc(frames, func(a, b *data.Frame) int {
+		idA, okA := a.Fields[len(a.Fields)-1].Labels[LabelID]
+		idB, okB := b.Fields[len(b.Fields)-1].Labels[LabelID]
+
+		switch {
+		case !okA || !okB:
+			// Unknown ordering
+			return 0
+		case idA > idB:
+			return 1
+		case idA < idB:
+			return -1
+		}
+		// If IDs are equal, we compare by series name
+
+		seriesA, okA := a.Fields[len(a.Fields)-1].Labels[LabelSeriesName]
+		seriesB, okB := b.Fields[len(b.Fields)-1].Labels[LabelSeriesName]
+
+		switch {
+		case !okA || !okB:
+			// Unknown ordering
+			return 0
+		case seriesA > seriesB:
+			return 1
+		case seriesA < seriesB:
+			return -1
+		default:
+			return 0
+		}
 	})
 }
 

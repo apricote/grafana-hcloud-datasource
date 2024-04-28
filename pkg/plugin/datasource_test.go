@@ -2,10 +2,11 @@ package plugin
 
 import (
 	"context"
-	"github.com/grafana/grafana-plugin-sdk-go/data"
+	"reflect"
 	"testing"
 
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
+	"github.com/grafana/grafana-plugin-sdk-go/data"
 )
 
 func TestQueryData(t *testing.T) {
@@ -76,6 +77,64 @@ func Test_getDisplayName(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := getDisplayName(tt.args.legendFormat, tt.args.labels); got != tt.want {
 				t.Errorf("getDisplayName() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_sortFrames(t *testing.T) {
+	frame := func(id string, seriesName string) *data.Frame {
+		return &data.Frame{Fields: []*data.Field{{Labels: data.Labels{
+			LabelID:         id,
+			LabelSeriesName: seriesName,
+		}}}}
+	}
+
+	type args struct {
+		frames []*data.Frame
+	}
+	tests := []struct {
+		name     string
+		input    []*data.Frame
+		expected []*data.Frame
+	}{
+		{
+			name:     "Single Frame",
+			input:    []*data.Frame{frame("Foo", "")},
+			expected: []*data.Frame{frame("Foo", "")},
+		},
+		{
+			name:     "Two Frames Sorted",
+			input:    []*data.Frame{frame("Bar", ""), frame("Foo", "")},
+			expected: []*data.Frame{frame("Bar", ""), frame("Foo", "")},
+		},
+		{
+			name:     "Two Frames Unsorted",
+			input:    []*data.Frame{frame("Foo", ""), frame("Bar", "")},
+			expected: []*data.Frame{frame("Bar", ""), frame("Foo", "")},
+		},
+		{
+			name:     "Two Frames by Series Name Sorted",
+			input:    []*data.Frame{frame("Foo", "A"), frame("Foo", "B")},
+			expected: []*data.Frame{frame("Foo", "A"), frame("Foo", "B")},
+		},
+		{
+			name:     "Two Frames by Series Name Unsorted",
+			input:    []*data.Frame{frame("Foo", "B"), frame("Foo", "A")},
+			expected: []*data.Frame{frame("Foo", "A"), frame("Foo", "B")},
+		},
+		{
+			name:     "Two Frames by Series Name Equal",
+			input:    []*data.Frame{frame("Foo", "A"), frame("Foo", "A")},
+			expected: []*data.Frame{frame("Foo", "A"), frame("Foo", "A")},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sortFrames(tt.input)
+
+			if !reflect.DeepEqual(tt.input, tt.expected) {
+				t.Errorf("sortFrames() = %v, want: %v", tt.input, tt.expected)
 			}
 		})
 	}
