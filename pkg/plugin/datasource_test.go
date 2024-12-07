@@ -90,9 +90,6 @@ func Test_sortFrames(t *testing.T) {
 		}}}}
 	}
 
-	type args struct {
-		frames []*data.Frame
-	}
 	tests := []struct {
 		name     string
 		input    []*data.Frame
