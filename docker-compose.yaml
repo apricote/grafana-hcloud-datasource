@@ -10,7 +10,7 @@ services:
       args:
         grafana_image: ${GRAFANA_IMAGE:-grafana-enterprise}
         # Keep at the lowest supported version of grafana as indicated in plugin.json
-        grafana_version: ${GRAFANA_VERSION:-11.4.0}
+        grafana_version: ${GRAFANA_VERSION:-12.1.1}
     ports:
       - 3000:3000/tcp
     volumes:

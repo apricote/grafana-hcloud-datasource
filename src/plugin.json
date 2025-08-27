@@ -53,7 +53,7 @@
   },
   "category": "cloud",
   "dependencies": {
-    "grafanaDependency": ">=11.4.0",
+    "grafanaDependency": ">=12.1.0",
     "plugins": []
   }
 }
