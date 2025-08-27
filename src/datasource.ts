@@ -1,5 +1,6 @@
-import { DataSourceInstanceSettings, CoreApp, SelectableValue, ScopedVars } from '@grafana/data';
+import { DataSourceInstanceSettings, CoreApp, ScopedVars } from '@grafana/data';
 import { DataSourceWithBackend, getTemplateSrv } from '@grafana/runtime';
+import { ComboboxOption } from '@grafana/ui';
 
 import { Query, DataSourceOptions, DEFAULT_QUERY, SelectBy } from './types';
 import { VariableSupport } from './variables';
@@ -37,11 +38,11 @@ export class DataSource extends DataSourceWithBackend<Query, DataSourceOptions> 
     return DEFAULT_QUERY;
   }
 
-  async getServers(): Promise<Array<SelectableValue<number>>> {
+  async getServers(): Promise<Array<ComboboxOption<number>>> {
     return this.getResource('servers');
   }
 
-  async getLoadBalancers(): Promise<Array<SelectableValue<number>>> {
+  async getLoadBalancers(): Promise<Array<ComboboxOption<number>>> {
     return this.getResource('load-balancers');
   }
 

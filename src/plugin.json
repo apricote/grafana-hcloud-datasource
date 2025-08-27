@@ -9,7 +9,7 @@
   "executable": "gpx_hcloud",
   "includes": [
     {
-      "type":"dashboard",
+      "type": "dashboard",
       "name": "Demo",
       "path": "dashboards/demo.json"
     }
@@ -53,7 +53,7 @@
   },
   "category": "cloud",
   "dependencies": {
-    "grafanaDependency": ">=11.4.0",
+    "grafanaDependency": ">=12.1.0",
     "plugins": []
   }
 }

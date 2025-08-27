@@ -5,14 +5,14 @@ jobs:
   compatibilitycheck:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v5
       - name: Setup Node.js environment
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
       - name: Build plugin
         run: npm run build
       - name: Compatibility check

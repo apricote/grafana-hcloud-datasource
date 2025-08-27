@@ -1,5 +1,5 @@
 import React, { ChangeEvent } from 'react';
-import { Badge, Checkbox, FieldSet, Icon, InlineField, LinkButton, SecretInput, VerticalGroup } from '@grafana/ui';
+import { Badge, Checkbox, FieldSet, Icon, InlineField, LinkButton, SecretInput, Stack } from '@grafana/ui';
 import { DataSourcePluginOptionsEditorProps } from '@grafana/data';
 import { DataSourceOptions, SecureJsonData } from '../types';
 import { OptionGroup } from './OptionGroup';
@@ -101,14 +101,14 @@ export function ConfigEditor(props: Props) {
       <FieldSet label={'Development'}>
         <p>These option are used to develop the Datasource. It should not be necessary to set them in production.</p>
         <OptionGroup title="Options" collapsedInfo={collapsedInfoList}>
-          <VerticalGroup>
+          <Stack direction={'column'}>
             <Checkbox
               value={jsonData.debug}
               label={'Debug Logging'}
               description={'Enable to see all requests & responses with the Hetzner Cloud API in the Grafana Logs'}
               onChange={onDebugChange}
             ></Checkbox>
-          </VerticalGroup>
+          </Stack>
         </OptionGroup>
       </FieldSet>
     </div>

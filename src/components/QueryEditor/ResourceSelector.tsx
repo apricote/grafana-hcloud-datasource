@@ -1,9 +1,9 @@
 import React, { useCallback, useState } from 'react';
-import { AsyncMultiSelect, InlineField } from '@grafana/ui';
-import { ResourceType } from '../../types';
-import { SelectableValue } from '@grafana/data';
+import { MultiCombobox, InlineField, ComboboxOption } from '@grafana/ui';
+
 import type { DataSource } from '../../datasource';
 import { notEmpty } from '../../util';
+import { ResourceType } from '../../types';
 
 interface ResourceSelectorFieldProps {
   datasource: DataSource;
@@ -15,11 +15,11 @@ interface ResourceSelectorFieldProps {
 }
 
 export function ResourceSelectorField({ datasource, ids, resourceType, onChange }: ResourceSelectorFieldProps) {
-  const [resources, setResources] = useState<Array<SelectableValue<number>>>([]);
+  const [resources, setResources] = useState<Array<ComboboxOption<number>>>([]);
 
   const load = useCallback(
     async (_: string) => {
-      let resources: Array<SelectableValue<number>> = [];
+      let resources: Array<ComboboxOption<number>> = [];
       switch (resourceType) {
         case ResourceType.Server: {
           resources = await datasource.getServers();
@@ -41,14 +41,13 @@ export function ResourceSelectorField({ datasource, ids, resourceType, onChange 
 
   return (
     <InlineField label={resourceType === ResourceType.Server ? 'Servers' : 'Load Balancers'}>
-      <AsyncMultiSelect
+      <MultiCombobox
         key={resourceType} // Force reloading options when the key changes
-        loadOptions={load}
+        options={load}
         value={values}
-        onChange={(newValues: Array<SelectableValue<number>>) => onChange(newValues.map((value) => value.value!))}
-        defaultOptions
-        isSearchable={false} // Currently not implemented in loadResources + API methods
-      ></AsyncMultiSelect>
+        onChange={(newValues: Array<ComboboxOption<number>>) => onChange(newValues.map((value) => value.value))}
+        createCustomValue={false}
+      ></MultiCombobox>
     </InlineField>
   );
 }
