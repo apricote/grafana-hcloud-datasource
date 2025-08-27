@@ -3,7 +3,7 @@ import React from 'react';
 import { useToggle } from 'react-use';
 
 import { GrafanaTheme2 } from '@grafana/data';
-import { Collapse, HorizontalGroup, useStyles2 } from '@grafana/ui';
+import { Collapse, Stack, useStyles2 } from '@grafana/ui';
 
 export interface Props {
   title: string;
@@ -26,7 +26,7 @@ export function OptionGroup({ title, children, collapsedInfo }: Props) {
         isOpen={isOpen}
         onToggle={toggleOpen}
         label={
-          <HorizontalGroup>
+          <Stack>
             <h6 className={styles.title}>{title}</h6>
             {!isOpen && (
               <div className={styles.description}>
@@ -35,7 +35,7 @@ export function OptionGroup({ title, children, collapsedInfo }: Props) {
                 ))}
               </div>
             )}
-          </HorizontalGroup>
+          </Stack>
         }
       >
         <div className={styles.body}>{children}</div>
