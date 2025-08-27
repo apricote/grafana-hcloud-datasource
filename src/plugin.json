@@ -9,7 +9,7 @@
   "executable": "gpx_hcloud",
   "includes": [
     {
-      "type":"dashboard",
+      "type": "dashboard",
       "name": "Demo",
       "path": "dashboards/demo.json"
     }

@@ -1,5 +1,4 @@
-import { InlineField, Select } from '@grafana/ui';
-import { SelectableValue } from '@grafana/data';
+import { InlineField, Combobox, ComboboxOption } from '@grafana/ui';
 import { LoadBalancerMetricsTypes, MetricsType, ResourceType, ServerMetricsTypes } from '../../types';
 import React from 'react';
 
@@ -29,11 +28,11 @@ export function MetricsTypeField({ metricsType, resourceType, onChange }: Metric
 
   return (
     <InlineField label="Metrics Type">
-      <Select
+      <Combobox
         options={availableMetricTypes}
         value={metricsType}
-        onChange={(event: SelectableValue<MetricsType>) => onChange(event.value!)}
-      ></Select>
+        onChange={(event: ComboboxOption<MetricsType>) => onChange(event.value!)}
+      ></Combobox>
     </InlineField>
   );
 }

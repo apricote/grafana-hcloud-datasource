@@ -1,4 +1,4 @@
-import { InlineField, Select } from '@grafana/ui';
+import { InlineField, RadioButtonGroup } from '@grafana/ui';
 import { ResourceType } from '../../types';
 import React from 'react';
 
@@ -15,7 +15,11 @@ interface ResourceTypeFieldProps {
 export function ResourceTypeField({ resourceType, onChange }: ResourceTypeFieldProps) {
   return (
     <InlineField label="Resource Type">
-      <Select options={resourceTypes} value={resourceType} onChange={(value) => onChange(value.value!)}></Select>
+      <RadioButtonGroup
+        options={resourceTypes}
+        value={resourceType}
+        onChange={(value) => onChange(value)}
+      ></RadioButtonGroup>
     </InlineField>
   );
 }
