@@ -27,7 +27,7 @@ export function LegendFormatField({ legendFormat, onChange }: LegendFormatFieldP
         value={legendFormat}
         placeholder={'Auto'}
         minLength={22}
-        onCommitChange={(e) => onChange(e.currentTarget.value)}
+        onChange={(e) => onChange(e.currentTarget.value)}
       ></AutoSizeInput>
     </InlineField>
   );
