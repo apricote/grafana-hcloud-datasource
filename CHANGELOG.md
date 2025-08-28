@@ -1,5 +1,19 @@
 # Changelog
 
+## [v1.0.0](https://github.com/apricote/grafana-hcloud-datasource/releases/tag/v1.0.0)
+
+### Breaking Changes
+
+All dependencies of the plugin have been updated, and it now requires Grafana 12.1&#43;.
+
+### Features
+
+- **BREAKING**: Grafana 12 (#13)
+
+### Bug Fixes
+
+- aborted request when API returned invalid_input error (#12)
+
 ## 0.3.0 (2024-04-28)
 
 ### New Features
