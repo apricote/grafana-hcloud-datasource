@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -90,6 +91,7 @@ const (
 	DefaultBufferPeriod = 200 * time.Millisecond
 
 	InvalidAPITokenErrorMessage = "API Token was not configured or does not work, a valid API Token is required for the data source to access the Hetzner Cloud API"
+	InvalidInputErrorMessage    = "The request sent to the Hetzner Cloud API was invalid"
 )
 
 var legendFormatRegexp = regexp.MustCompile(`\{\{\s*(.+?)\s*\}\}`)
@@ -850,6 +852,10 @@ var (
 )
 
 func filterServerMetrics(metrics *hcloud.ServerMetrics, metricsTypes []MetricsType) *hcloud.ServerMetrics {
+	if metrics == nil {
+		return nil
+	}
+
 	metricsCopy := *metrics
 	metricsCopy.TimeSeries = make(map[string][]hcloud.ServerMetricsValue)
 
@@ -864,6 +870,10 @@ func filterServerMetrics(metrics *hcloud.ServerMetrics, metricsTypes []MetricsTy
 }
 
 func filterLoadBalancerMetrics(metrics *hcloud.LoadBalancerMetrics, metricsTypes []MetricsType) *hcloud.LoadBalancerMetrics {
+	if metrics == nil {
+		return nil
+	}
+
 	metricsCopy := *metrics
 	metricsCopy.TimeSeries = make(map[string][]hcloud.LoadBalancerMetricsValue)
 
@@ -879,10 +889,29 @@ func filterLoadBalancerMetrics(metrics *hcloud.LoadBalancerMetrics, metricsTypes
 
 // NicerErrorMessages replaces some error messages from the hetzner cloud API with more user-friendly messages.
 func NicerErrorMessages(err error) error {
-	switch {
-	case hcloud.IsError(err, hcloud.ErrorCodeUnauthorized):
-		return fmt.Errorf("%s: %w", InvalidAPITokenErrorMessage, err)
-	default:
+	var hcloudErr hcloud.Error
+	if !errors.As(err, &hcloudErr) {
 		return err
+	}
+
+	switch {
+
+	case hcloud.IsError(hcloudErr, hcloud.ErrorCodeUnauthorized):
+		return fmt.Errorf("%s: %w", InvalidAPITokenErrorMessage, hcloudErr)
+	case hcloud.IsError(hcloudErr, hcloud.ErrorCodeInvalidInput):
+		details, ok := hcloudErr.Details.(hcloud.ErrorDetailsInvalidInput)
+		if !ok {
+			return hcloudErr
+		}
+
+		var errBuilder strings.Builder
+		for _, field := range details.Fields {
+			fieldMsg := strings.Join(field.Messages, ", ")
+			errBuilder.WriteString(fmt.Sprintf("%s: %s", field.Name, fieldMsg))
+		}
+
+		return fmt.Errorf("%s: %s", InvalidInputErrorMessage, errBuilder.String())
+	default:
+		return hcloudErr
 	}
 }
