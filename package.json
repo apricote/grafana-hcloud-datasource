@@ -1,6 +1,6 @@
 {
   "name": "grafana-hcloud-datasource",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Get metrics from hetzner cloud servers and load balancers directly in grafana",
   "scripts": {
     "build": "webpack -c ./.config/webpack/webpack.config.ts --env production",

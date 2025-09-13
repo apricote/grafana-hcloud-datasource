@@ -1,5 +1,11 @@
 # Changelog
 
+## [v1.0.1](https://github.com/apricote/grafana-hcloud-datasource/releases/tag/v1.0.1)
+
+### Bug Fixes
+
+- revert to eslint 8 to fix release process (#18)
+
 ## [v1.0.0](https://github.com/apricote/grafana-hcloud-datasource/releases/tag/v1.0.0)
 
 ### Breaking Changes
