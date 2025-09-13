@@ -13,7 +13,7 @@ It works directly with the Hetzner Cloud API, and does not require Prometheus or
 
 ## Requirements
 
-- Grafana 10+
+- Grafana 12+
 
 ## Getting Started
 

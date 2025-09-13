@@ -2,7 +2,6 @@
   "$schema": "https://raw.githubusercontent.com/grafana/grafana/main/docs/sources/developers/plugins/plugin.schema.json",
   "type": "datasource",
   "name": "Hetzner Cloud",
-  "state": "beta",
   "id": "apricote-hcloud-datasource",
   "metrics": true,
   "backend": true,
@@ -10,7 +9,7 @@
   "includes": [
     {
       "type": "dashboard",
-      "name": "Demo",
+      "name": "demo",
       "path": "dashboards/demo.json"
     }
   ],
